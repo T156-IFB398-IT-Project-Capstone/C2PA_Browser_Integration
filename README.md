@@ -12,12 +12,12 @@ A browser extension that detects media on web pages, extracts C2PA Content Crede
 │                                              │
 │  ┌──────────────┐  ┌───────────────────────┐ │
 │  │ Content      │  │ Background Service    │ │
-│  │ Script       │─▶│ Worker                │ │
+│  │ Script       │─>│ Worker                │ │
 │  │ (DOM scan)   │  │ (fetch, orchestrate)  │ │
 │  └──────────────┘  └──────────┬────────────┘ │
 │                               │              │
 │  ┌──────────────────────────┐ │              │
-│  │ Popup / Side Panel (UI)  │◀┘              │
+│  │ Popup / Side Panel (UI)  │<┘              │
 │  └──────────────────────────┘                │
 └───────────────────────┬──────────────────────┘
                         │ JSON over HTTP
@@ -102,12 +102,12 @@ The extension is now connected to the local service.
 
 ## What's implemented (Sprint 2 vertical slice)
 
-- ✅ MV3 extension scaffold (manifest, content script, background worker, popup)
-- ✅ DOM image discovery (JPEG, PNG) + forwarding to the service worker
-- ✅ Typed message passing (content ↔ background ↔ popup)
-- ✅ Localhost HTTP IPC client with shared-secret auth
-- ✅ Rust HTTP service with shared-secret middleware, localhost-only binding, rate-limit hook
-- ✅ Stable API contract (`docs/API_CONTRACT.md`) — mock backend slots in for real `c2pa-rs` later
+- MV3 extension scaffold (manifest, content script, background worker, popup)
+- DOM image discovery (JPEG, PNG) + forwarding to the service worker
+- Typed message passing (content ↔ background ↔ popup)
+- Localhost HTTP IPC client with shared-secret auth
+- Rust HTTP service with shared-secret middleware, localhost-only binding, rate-limit hook
+- Stable API contract (`docs/API_CONTRACT.md`) — mock backend slots in for real `c2pa-rs` later
 
 ## What's next
 
