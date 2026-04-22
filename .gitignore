@@ -1,24 +1,65 @@
+# ============================================================
 # Rust
+# ============================================================
 rust-service/target/
+rust-service/*.log
+**/*.rs.bk
+
+# Config with secrets — MUST NOT commit
 rust-service/.env
 rust-service/config.toml
-rust-service/*.log
 
-# Node / tooling
+# ============================================================
+# Node / tooling (when we add bundlers later)
+# ============================================================
 node_modules/
-.DS_Store
+.npm/
+.yarn/
 
-# Editors
-.vscode/
-.idea/
-*.swp
-*~
-
+# ============================================================
 # Extension build output (if we later add a bundler)
+# ============================================================
 extension/dist/
 
-# Test assets that contain real user data
+# ============================================================
+# Test assets with real user data
+# ============================================================
 test-assets/private/
 
-# Secrets
+# ============================================================
+# Secrets (defence in depth)
+# ============================================================
 *.secret
+*.key
+*.pem
+.env.local
+.env.*.local
+
+# ============================================================
+# Editors / IDEs
+# ============================================================
+.vscode/
+.idea/
+*.iml
+*.swp
+*.swo
+*~
+
+# ============================================================
+# OS metadata
+# ============================================================
+# macOS
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.nfs*
