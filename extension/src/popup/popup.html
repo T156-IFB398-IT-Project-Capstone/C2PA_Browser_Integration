@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>C2PA Content Credentials</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header class="header">
+    <div class="brand">
+      <div class="brand-icon" aria-hidden="true">⎈</div>
+      <div class="brand-text">
+        <div class="brand-title">C2PA Verify</div>
+        <div class="brand-sub">QUT × Databench</div>
+      </div>
+    </div>
+    <button id="btn-settings" class="icon-btn" title="Settings" aria-label="Open settings">
+      <span aria-hidden="true">⚙</span>
+    </button>
+  </header>
+
+  <!-- Main view -->
+  <main id="view-main" class="view">
+    <div id="service-status" class="service-banner service-banner--unknown">
+      <span class="dot" aria-hidden="true"></span>
+      <span class="service-label">Checking local service…</span>
+    </div>
+
+    <button id="btn-scan" class="primary-btn" disabled>Scan this page</button>
+
+    <div id="scan-meta" class="scan-meta hidden"></div>
+
+    <ul id="results" class="results" aria-live="polite"></ul>
+
+    <div id="empty" class="empty hidden">
+      <p>No images scanned yet on this page.</p>
+      <p class="hint">Click <strong>Scan this page</strong> to detect Content Credentials.</p>
+    </div>
+  </main>
+
+  <!-- Settings view -->
+  <section id="view-settings" class="view hidden">
+    <h2 class="view-title">Settings</h2>
+
+    <label class="field">
+      <span class="field-label">Shared secret</span>
+      <input id="input-secret" type="password" placeholder="Paste the value printed by the Rust service" autocomplete="off" />
+      <span class="field-hint">
+        Printed in your terminal on first run of <code>cargo run</code>.
+        Stored locally in <code>chrome.storage.local</code>.
+      </span>
+    </label>
+
+    <div class="actions">
+      <button id="btn-test" class="secondary-btn">Test connection</button>
+      <button id="btn-save" class="primary-btn">Save</button>
+    </div>
+
+    <div id="settings-feedback" class="feedback hidden"></div>
+
+    <button id="btn-back" class="link-btn">← Back</button>
+  </section>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>
