@@ -20,32 +20,84 @@
     </button>
   </header>
 
-  <!-- Main view -->
+  <!-- ===== Main view ===== -->
   <main id="view-main" class="view">
+
+    <!-- Service health banner (always visible) -->
     <div id="service-status" class="service-banner service-banner--unknown">
       <span class="dot" aria-hidden="true"></span>
       <span class="service-label">Checking local service…</span>
     </div>
 
-    <button id="btn-scan" class="primary-btn" disabled>Scan this page</button>
-
-    <div id="scan-meta" class="scan-meta hidden"></div>
-
-    <ul id="results" class="results" aria-live="polite"></ul>
-
-    <div id="empty" class="empty hidden">
-      <p>No images scanned yet on this page.</p>
-      <p class="hint">Click <strong>Scan this page</strong> to detect Content Credentials.</p>
+    <!-- Offline startup guide (shown when service is unreachable) -->
+    <div id="offline-guide" class="offline-guide hidden">
+      <p class="offline-title">Backend not running</p>
+      <p class="offline-body">
+        Open a terminal in the project root and run:
+      </p>
+      <pre class="offline-cmd">cd rust-service &amp;&amp; cargo run</pre>
+      <p class="offline-body">
+        Then open <strong>Settings</strong> and paste the printed
+        <code>SHARED_SECRET</code> if this is your first run.
+      </p>
     </div>
+
+    <!-- Tab bar -->
+    <div class="tab-bar" role="tablist">
+      <button id="tab-scan" class="tab-btn tab-btn--active" role="tab" aria-selected="true"
+              aria-controls="panel-scan">Scan Results</button>
+      <button id="tab-live" class="tab-btn" role="tab" aria-selected="false"
+              aria-controls="panel-live">
+        Live Media
+        <span id="live-count-badge" class="live-badge hidden" aria-label="detected media count">0</span>
+      </button>
+    </div>
+
+    <!-- ── Scan panel (default visible) ─────────────────────────────────── -->
+    <div id="panel-scan" role="tabpanel" aria-labelledby="tab-scan">
+      <button id="btn-scan" class="primary-btn" disabled>Scan this page</button>
+
+      <!-- Progress bar (visible during scan) -->
+      <div id="scan-progress" class="progress-wrap hidden" aria-live="polite" aria-label="Scan progress">
+        <div class="progress-track">
+          <div class="progress-fill" style="width:0%"></div>
+        </div>
+        <span class="progress-label"></span>
+      </div>
+
+      <div id="scan-meta" class="scan-meta hidden"></div>
+
+      <ul id="results" class="results" aria-live="polite"></ul>
+
+      <div id="empty" class="empty hidden">
+        <p>No images scanned yet on this page.</p>
+        <p class="hint">Click <strong>Scan this page</strong> to detect Content Credentials.</p>
+      </div>
+    </div>
+
+    <!-- ── Live media panel (hidden until tab click) ─────────────────────── -->
+    <div id="panel-live" class="hidden" role="tabpanel" aria-labelledby="tab-live">
+      <div id="live-meta" class="scan-meta hidden"></div>
+
+      <ul id="live-list" class="results" aria-live="polite" aria-label="Live detected media"></ul>
+
+      <div id="live-empty" class="empty hidden">
+        <p>No media detected yet.</p>
+        <p class="hint">Media will appear here as it loads on the page.</p>
+      </div>
+    </div>
+
   </main>
 
-  <!-- Settings view -->
+  <!-- ===== Settings view ===== -->
   <section id="view-settings" class="view hidden">
     <h2 class="view-title">Settings</h2>
 
     <label class="field">
       <span class="field-label">Shared secret</span>
-      <input id="input-secret" type="password" placeholder="Paste the value printed by the Rust service" autocomplete="off" />
+      <input id="input-secret" type="password"
+             placeholder="Paste the value printed by the Rust service"
+             autocomplete="off" />
       <span class="field-hint">
         Printed in your terminal on first run of <code>cargo run</code>.
         Stored locally in <code>chrome.storage.local</code>.

@@ -22,6 +22,8 @@ pub enum ServiceError {
     #[error("payload too large")]
     PayloadTooLarge,
 
+    // Reserved for Sprint 3+ real c2pa-rs verifier — not constructed by the mock.
+    #[allow(dead_code)]
     #[error("verification failed: {0}")]
     VerifyFailed(String),
 

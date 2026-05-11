@@ -12,14 +12,14 @@ Version: `v1` (prefix: `/api/v1/`)
 
 ### Error codes
 
-| HTTP | `code`            | Meaning                                             |
-| ---- | ----------------- | --------------------------------------------------- |
-| 401  | `UNAUTHORIZED`    | Missing or invalid `X-C2PA-Token`.                  |
-| 400  | `INVALID_INPUT`   | Malformed request body / unsupported format.        |
-| 413  | `PAYLOAD_TOO_LARGE` | Asset exceeds the size limit (default 50 MB).     |
-| 429  | `RATE_LIMITED`    | Too many requests from the extension.               |
-| 422  | `VERIFY_FAILED`   | Verification ran but asset is invalid/untrusted.    |
-| 500  | `INTERNAL`        | Unexpected server error.                            |
+| HTTP | `code` | Meaning |
+| --- | --- | --- |
+| 401 | `UNAUTHORIZED` | Missing or invalid `X-C2PA-Token`. |
+| 400 | `INVALID_INPUT` | Malformed request body or unsupported format. |
+| 413 | `PAYLOAD_TOO_LARGE` | Asset exceeds the size limit (default 50 MB). |
+| 429 | `RATE_LIMITED` | Too many requests from the extension. |
+| 422 | `VERIFY_FAILED` | Verification ran but asset is invalid or untrusted. |
+| 500 | `INTERNAL` | Unexpected server error. |
 
 ## Endpoints
 
@@ -28,6 +28,7 @@ Version: `v1` (prefix: `/api/v1/`)
 Liveness probe. Does not require auth (but is localhost-only).
 
 **Response 200:**
+
 ```json
 { "status": "ok", "version": "0.1.0" }
 ```
@@ -37,6 +38,7 @@ Liveness probe. Does not require auth (but is localhost-only).
 Verify a single media asset.
 
 **Request body:**
+
 ```json
 {
   "source_url": "https://example.com/image.jpg",
@@ -45,13 +47,16 @@ Verify a single media asset.
 }
 ```
 
-| Field         | Type   | Required | Notes                                                            |
-| ------------- | ------ | -------- | ---------------------------------------------------------------- |
-| `source_url`  | string | yes      | Original URL. Used for logging/diagnostics only.                 |
-| `media_type`  | string | yes      | MIME type. Semester 1: `image/jpeg`, `image/png`.                |
-| `data_base64` | string | yes      | Asset bytes. Max 50 MB decoded.                                  |
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `source_url` | string | yes | Original URL. Used for logging and diagnostics only. |
+| `media_type` | string | yes | MIME type. Supported: `image/jpeg`, `image/png`, `image/gif`, `image/webp`. |
+| `data_base64` | string | yes | Asset bytes base64-encoded. Maximum 50 MB decoded. |
+
+> **Note:** video and audio MIME types are detected and displayed in the extension's Live Media panel but are not forwarded to this endpoint. Only image MIME types listed above are sent for verification.
 
 **Response 200:**
+
 ```json
 {
   "status": "verified_trusted",
@@ -75,16 +80,27 @@ Verify a single media asset.
 }
 ```
 
+> Mock responses also include `"_mock": true` in the manifest object to signal that the result is synthetic. This field will not be present when `c2pa-rs` verification is active.
+
 ### Status enum (stable)
 
-| Value                          | Meaning                                                        |
-| ------------------------------ | -------------------------------------------------------------- |
-| `verified_trusted`             | Signature valid + signer in local trust list.                  |
-| `verified_untrusted`           | Signature valid but signer NOT in local trust list.            |
-| `invalid_or_changed`           | Hash mismatch / signature failure.                             |
-| `no_credentials`               | No embedded C2PA data found.                                   |
-| `unsupported_format`           | Format is not supported in Semester 1.                         |
+| Value | Meaning |
+| --- | --- |
+| `verified_trusted` | Signature valid; signer is in the local trust list. |
+| `verified_untrusted` | Signature valid; signer is NOT in the local trust list. |
+| `invalid_or_changed` | Hash mismatch or signature failure — asset may have been tampered with. |
+| `no_credentials` | No embedded C2PA manifest found in the asset. |
+| `unsupported_format` | MIME type or magic bytes are not supported by the current verifier. |
+
+## Extension-side IPC contract
+
+The extension's `ipc-client.js` adds the following reliability guarantees on top of raw HTTP:
+
+- **Timeout:** every request is aborted after 10 seconds (`IPC_TIMEOUT_MS`).
+- **Retry:** up to 3 total attempts with exponential backoff (400 ms → 800 ms).
+- **Circuit breaker:** opens after 3 consecutive failures; stays open for 15 seconds before a probe is allowed.
+- **Error codes surfaced to callers:** `NO_SECRET`, `TIMEOUT`, `CIRCUIT_OPEN`, `HTTP_<status>`.
 
 ## Version bumps
 
-Breaking changes ship under a new prefix (`/api/v2/`). The extension negotiates version via the `X-C2PA-Api-Version` request header (defaults to `1`).
+Breaking changes ship under a new prefix (`/api/v2/`). The extension negotiates the version via the `X-C2PA-Api-Version` request header (defaults to `1`).

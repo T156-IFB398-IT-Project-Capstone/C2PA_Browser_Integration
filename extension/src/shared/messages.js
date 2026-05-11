@@ -1,25 +1,32 @@
 // src/shared/messages.js
 //
-// Typed messages passed over chrome.runtime.sendMessage.
-// Using a small enum keeps the three extension layers (content, background, popup) in sync.
+// Typed message-bus contract shared by content, background, and popup.
+// All three extension layers must agree on these string values.
 
 export const MSG = Object.freeze({
   // content-script → background
-  MEDIA_DETECTED:   'c2pa/media_detected',
+  MEDIA_DETECTED:        'c2pa/media_detected',
 
-  // popup → background
-  SCAN_ACTIVE_TAB:  'c2pa/scan_active_tab',
-  GET_LAST_RESULT:  'c2pa/get_last_result',
-  TEST_SERVICE:     'c2pa/test_service',
+  // popup → background (on-demand actions)
+  SCAN_ACTIVE_TAB:       'c2pa/scan_active_tab',
+  GET_LAST_RESULT:       'c2pa/get_last_result',
+  TEST_SERVICE:          'c2pa/test_service',
+  GET_TAB_MEDIA:         'c2pa/get_tab_media',         // { } → { tabId, media, pageUrl, count }
 
-  // background → popup
-  SCAN_PROGRESS:    'c2pa/scan_progress',
-  SCAN_COMPLETE:    'c2pa/scan_complete',
+  // background → popup (push events)
+  SCAN_PROGRESS:         'c2pa/scan_progress',         // { done, total }
+  SCAN_COMPLETE:         'c2pa/scan_complete',         // { summary }
+  HEALTH_STATUS_CHANGED: 'c2pa/health_status_changed', // { ok, version, ts }
+  MEDIA_UPDATED:         'c2pa/media_updated',          // { tabId, media, pageUrl, count }
+
+  // Sprint 4 prep — cache & queue management
+  CLEAR_CACHE:           'c2pa/clear_cache',
+  GET_QUEUE_STATUS:      'c2pa/get_queue_status',
 });
 
 /**
  * Build a typed message envelope.
- * @param {string} type  One of MSG.*
+ * @param {string} type     One of MSG.*
  * @param {object} [payload]
  */
 export function msg(type, payload = {}) {

@@ -32,6 +32,8 @@ pub trait Verifier: Send + Sync {
 pub enum VerifyStatus {
     VerifiedTrusted,
     VerifiedUntrusted,
+    // Requires real manifest parsing to detect; reserved for Sprint 3+ c2pa-rs integration.
+    #[allow(dead_code)]
     InvalidOrChanged,
     NoCredentials,
     UnsupportedFormat,
@@ -82,6 +84,16 @@ impl Verifier for MockVerifier {
             let trust_chain_start = std::time::Instant::now();
             tokio::time::sleep(std::time::Duration::from_millis(8)).await;
             let trust_chain_ms = trust_chain_start.elapsed().as_millis();
+
+            // Only JPEG and PNG carry C2PA data in the mock; other MIME types are unsupported.
+            const SUPPORTED: &[&str] = &["image/jpeg", "image/png", "image/gif", "image/webp"];
+            if !SUPPORTED.contains(&media_type) {
+                return Ok(VerificationOutcome {
+                    status:         VerifyStatus::UnsupportedFormat,
+                    manifest:       None,
+                    trust_chain_ms: 0,
+                });
+            }
 
             let is_jpeg = bytes.len() >= 3 && &bytes[0..3] == b"\xFF\xD8\xFF";
             let is_png  = bytes.len() >= 8 && &bytes[0..8] == b"\x89PNG\r\n\x1A\n";
