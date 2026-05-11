@@ -100,7 +100,7 @@ The extension is now connected to the local service.
 
 > The current verifier returns **mock results** — the IPC, discovery, and UI are wired end-to-end so the team can slot real `c2pa-rs` verification into `rust-service/src/verify.rs` without touching anything else.
 
-## What's implemented (Sprint 2 vertical slice)
+## What's implemented 
 
 - MV3 extension scaffold (manifest, content script, background worker, popup)
 - DOM image discovery (JPEG, PNG) + forwarding to the service worker
