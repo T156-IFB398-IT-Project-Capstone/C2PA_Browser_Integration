@@ -11,7 +11,7 @@ A browser extension that detects and tracks media on web pages, extracts C2PA Co
 │ Browser Extension (MV3, Chromium)                        │
 │                                                          │
 │  ┌─────────────────┐   ┌──────────────────────────────┐  │
-│  │ Content Script  │──▶│ Background Service Worker    │  │
+│  │ Content Script  │──>│ Background Service Worker    │  │
 │  │ - DOM scan      │   │ - IPC: timeout/retry/CB      │  │
 │  │ - MutationObs.  │   │ - TabMediaRegistry           │  │
 │  │ - video/audio   │   │ - ResultCache (5 min TTL)    │  │
@@ -19,7 +19,7 @@ A browser extension that detects and tracks media on web pages, extracts C2PA Co
 │  └─────────────────┘   │ - Keepalive alarm (24 s)     │  │
 │                        │ - Health poll alarm (30 s)   │  │
 │  ┌─────────────────┐   └──────────────┬───────────────┘  │
-│  │ Popup UI        │◀─────────────────┘                  │
+│  │ Popup UI        │<─────────────────┘                  │
 │  │ - Scan Results  │   push: SCAN_PROGRESS               │
 │  │ - Live Media    │        HEALTH_STATUS_CHANGED        │
 │  └─────────────────┘        MEDIA_UPDATED                │
@@ -31,8 +31,8 @@ A browser extension that detects and tracks media on web pages, extracts C2PA Co
 │ Local Rust Service (native process, 127.0.0.1:8901)      │
 │                                                          │
 │  ┌──────────────────────┐  ┌─────────────────────────┐   │
-│  │ Verification Engine  │  │ Auth Middleware          │   │
-│  │ (MockVerifier now;   │  │ (constant-time HMAC      │   │
+│  │ Verification Engine  │  │ Auth Middleware         │   │
+│  │ (MockVerifier now;   │  │ (constant-time HMAC     │   │
 │  │  c2pa-rs slot ready) │  │  shared-secret check)   │   │
 │  └──────────────────────┘  └─────────────────────────┘   │
 │  Binds to 127.0.0.1 only. External callers cannot reach. │
