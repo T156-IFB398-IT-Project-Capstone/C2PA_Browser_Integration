@@ -122,10 +122,11 @@ async function verifyOne(url) {
 
     await ensureOffscreen();
 
-    // bytes.buffer is safe here: fetchAsBytes creates Uint8Array directly from
-    // arrayBuffer(), so byteOffset === 0 and buffer.byteLength === bytes.byteLength.
+    // chrome.runtime.sendMessage uses JSON serialization — ArrayBuffer becomes
+    // "[object ArrayBuffer]". Send as a plain number array; offscreen
+    // reconstructs as Uint8Array before passing to c2pa-web.
     const response = await chrome.runtime.sendMessage(
-      msg(MSG.VERIFY_REQUEST, { bytes: bytes.buffer, mimeType: mediaType })
+      msg(MSG.VERIFY_REQUEST, { bytes: Array.from(bytes), mimeType: mediaType })
     );
 
     const record = {

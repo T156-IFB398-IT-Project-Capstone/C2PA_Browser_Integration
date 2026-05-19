@@ -5,7 +5,7 @@
 // support that the MV3 service worker lacks.
 //
 // Message protocol (request/response via chrome.runtime.onMessage):
-//   IN  { type: MSG.VERIFY_REQUEST, payload: { bytes: ArrayBuffer, mimeType: string } }
+//   IN  { type: MSG.VERIFY_REQUEST, payload: { bytes: number[], mimeType: string } }
 //   OUT { status: string, manifest: object|null, error: { message: string }|null }
 
 import { createC2pa }               from '@contentauth/c2pa-web/inline';
@@ -29,7 +29,16 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   verify(message.payload)
     .then(sendResponse)
-    .catch(err => sendResponse({ status: 'error', manifest: null, error: { message: err.message } }));
+    .catch(err => {
+      const msgText = err?.message ?? String(err);
+      // c2pa-web throws UnsupportedType for assets it cannot parse (wrong
+      // container, no C2PA box in some format variants). Surface as
+      // NO_CREDENTIALS so the popup shows a sensible state rather than "Error".
+      const status = /UnsupportedType/i.test(msgText)
+        ? VERIFY_STATUS.NO_CREDENTIALS
+        : 'error';
+      sendResponse({ status, manifest: null, error: status === 'error' ? { message: msgText } : null });
+    });
 
   return true; // keep the message channel open for the async sendResponse
 });
@@ -37,8 +46,12 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 // ── Core verification ─────────────────────────────────────────────────────────
 
 async function verify({ bytes, mimeType }) {
-  const c2pa   = await getSdk();
-  const blob   = new Blob([bytes], { type: mimeType });
+  const c2pa = await getSdk();
+
+  // service-worker.js sends bytes as a plain number array (chrome.runtime
+  // does not support ArrayBuffer transfer). Reconstruct as Uint8Array.
+  const u8     = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  const blob   = new Blob([u8], { type: mimeType });
   const reader = await c2pa.reader.fromBlob(mimeType, blob);
 
   if (!reader) {
