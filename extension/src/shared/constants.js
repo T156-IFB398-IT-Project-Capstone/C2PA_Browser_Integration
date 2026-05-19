@@ -3,28 +3,18 @@
 // Central source of truth for all tunable values.
 // Organised into sections so future sprints can find and extend them easily.
 
-// --- Service endpoint --------------------------------------------------------
+// --- Offscreen document (Step 2+) -------------------------------------------
+// Used by service-worker.js to create/target the offscreen document.
 
-export const SERVICE_BASE_URL = 'http://127.0.0.1:8901';
-export const API_VERSION      = 'v1';
-export const API_PREFIX       = `${SERVICE_BASE_URL}/api/${API_VERSION}`;
+export const OFFSCREEN_URL    = 'src/offscreen/offscreen.html';
+export const OFFSCREEN_REASON = 'WORKERS';  // resolved to chrome.offscreen.Reason.WORKERS in SW
 
-// --- IPC reliability (Sprint 3) ---------------------------------------------
-// These guard every fetch call to the Rust service.
-
-export const IPC_TIMEOUT_MS    = 10_000;  // abort if the Rust service stalls
-export const IPC_MAX_RETRIES   = 3;       // total attempts (first + 2 retries)
-export const IPC_RETRY_BASE_MS = 400;     // exponential-backoff seed (400 → 800ms)
-
-// --- MV3 keepalive & health monitoring (Sprint 3) ---------------------------
+// --- MV3 keepalive -----------------------------------------------------------
 // Service workers may be terminated after ~30 s of inactivity.
 // A keepalive alarm fires every 24 s to prevent that.
-// A separate health alarm polls the Rust service every 30 s.
 
-export const KEEPALIVE_ALARM          = 'c2pa.keepalive';
-export const HEALTH_POLL_ALARM        = 'c2pa.health_poll';
-export const KEEPALIVE_INTERVAL_MIN   = 0.4;   // 24 s  (< 30 s idle-kill threshold)
-export const HEALTH_POLL_INTERVAL_MIN = 0.5;   // 30 s
+export const KEEPALIVE_ALARM        = 'c2pa.keepalive';
+export const KEEPALIVE_INTERVAL_MIN = 0.4;   // 24 s  (< 30 s idle-kill threshold)
 
 // --- Scan pipeline (Sprint 3) ------------------------------------------------
 
@@ -61,22 +51,22 @@ export const MEDIA_KIND = Object.freeze({
 // --- Storage keys ------------------------------------------------------------
 
 export const STORAGE_KEYS = Object.freeze({
-  SHARED_SECRET: 'c2pa.shared_secret',
-  LAST_SCAN:     'c2pa.last_scan',
-  SETTINGS:      'c2pa.settings',
-  HEALTH_STATE:  'c2pa.health_state',   // written to session storage
-  SCAN_CACHE:    'c2pa.scan_cache',     // Sprint 4 prep
+  LAST_SCAN:  'c2pa.last_scan',
+  SETTINGS:   'c2pa.settings',
+  SCAN_CACHE: 'c2pa.scan_cache',  // Sprint 4 prep
 });
 
-// --- Verification status (must match Rust API contract exactly) -------------
+// --- Verification status -----------------------------------------------------
 
 export const VERIFY_STATUS = Object.freeze({
-  VERIFIED_TRUSTED:    'verified_trusted',
-  VERIFIED_UNTRUSTED:  'verified_untrusted',
-  INVALID_OR_CHANGED:  'invalid_or_changed',
-  NO_CREDENTIALS:      'no_credentials',
-  UNSUPPORTED_FORMAT:  'unsupported_format',
+  VERIFIED_TRUSTED:   'verified_trusted',
+  VERIFIED_UNTRUSTED: 'verified_untrusted',
+  INVALID_OR_CHANGED: 'invalid_or_changed',
+  NO_CREDENTIALS:     'no_credentials',
+  UNSUPPORTED_FORMAT: 'unsupported_format',
 });
 
-// Maximum asset size forwarded to the service (matches Rust-side cap).
-export const MAX_ASSET_BYTES = 50 * 1024 * 1024; // 50 MB
+// Maximum asset size forwarded to the offscreen verifier.
+// Capped at 15 MB (down from 50 MB) to reduce WASM memory pressure in the
+// offscreen document — see Migration Plan Trade-off T1.
+export const MAX_ASSET_BYTES = 15 * 1024 * 1024;

@@ -5,23 +5,25 @@
 
 export const MSG = Object.freeze({
   // content-script → background
-  MEDIA_DETECTED:        'c2pa/media_detected',
+  MEDIA_DETECTED:  'c2pa/media_detected',
+
+  // background → offscreen document (verification)
+  VERIFY_REQUEST:  'c2pa/verify_request',   // { bytes: ArrayBuffer, mimeType: string }
+  VERIFY_RESULT:   'c2pa/verify_result',    // reserved for future SW-side response routing
 
   // popup → background (on-demand actions)
-  SCAN_ACTIVE_TAB:       'c2pa/scan_active_tab',
-  GET_LAST_RESULT:       'c2pa/get_last_result',
-  TEST_SERVICE:          'c2pa/test_service',
-  GET_TAB_MEDIA:         'c2pa/get_tab_media',         // { } → { tabId, media, pageUrl, count }
+  SCAN_ACTIVE_TAB: 'c2pa/scan_active_tab',
+  GET_LAST_RESULT: 'c2pa/get_last_result',
+  GET_TAB_MEDIA:   'c2pa/get_tab_media',    // { } → { tabId, media, pageUrl, count }
 
   // background → popup (push events)
-  SCAN_PROGRESS:         'c2pa/scan_progress',         // { done, total }
-  SCAN_COMPLETE:         'c2pa/scan_complete',         // { summary }
-  HEALTH_STATUS_CHANGED: 'c2pa/health_status_changed', // { ok, version, ts }
-  MEDIA_UPDATED:         'c2pa/media_updated',          // { tabId, media, pageUrl, count }
+  SCAN_PROGRESS:   'c2pa/scan_progress',    // { done, total }
+  SCAN_COMPLETE:   'c2pa/scan_complete',    // { summary }
+  MEDIA_UPDATED:   'c2pa/media_updated',    // { tabId, media, pageUrl, count }
 
   // Sprint 4 prep — cache & queue management
-  CLEAR_CACHE:           'c2pa/clear_cache',
-  GET_QUEUE_STATUS:      'c2pa/get_queue_status',
+  CLEAR_CACHE:      'c2pa/clear_cache',
+  GET_QUEUE_STATUS: 'c2pa/get_queue_status',
 });
 
 /**

@@ -20,6 +20,11 @@
 //   - GET_TAB_MEDIA returns the current tab's full media list on demand.
 //   - chrome.tabs.onRemoved clears registry when a tab closes.
 //   - chrome.tabs.onUpdated clears registry on navigation (status: 'loading').
+//
+// Extension-only migration (Step 3/4):
+//   - ipc-client.js import commented out — Step 4 replaces with offscreen messaging.
+//   - Health poll removed — no Rust service to monitor.
+//   - verifyOne() body commented out — Step 4 rewrites with offscreen delegation.
 
 import { MSG, msg }         from '../shared/messages.js';
 import { ResultCache }      from '../shared/result-cache.js';
@@ -31,11 +36,10 @@ import {
   MAX_ASSET_BYTES,
   SCAN_CONCURRENCY,
   KEEPALIVE_ALARM,
-  HEALTH_POLL_ALARM,
   KEEPALIVE_INTERVAL_MIN,
-  HEALTH_POLL_INTERVAL_MIN,
 } from '../shared/constants.js';
-import { verifyAsset, checkHealth } from '../shared/ipc-client.js';
+// TODO Step 4: removed for extension-only migration
+// import { verifyAsset, checkHealth } from '../shared/ipc-client.js';
 
 // ---------------------------------------------------------------------------
 // Module-level singletons (survive within one SW lifetime)
@@ -45,55 +49,58 @@ const scanQueue        = new ScanQueue({ maxAge: 60_000 });
 const resultCache      = new ResultCache();
 const tabMediaRegistry = new TabMediaRegistry();
 
-/** @type {{ ok: boolean, version?: string, ts: number } | null} */
-let _lastHealth = null;
+// TODO Step 4: removed for extension-only migration
+// let _lastHealth = null;
 
 // ---------------------------------------------------------------------------
-// MV3 keepalive + health alarms
+// MV3 keepalive alarm
 // ---------------------------------------------------------------------------
 
 function ensureAlarms() {
   chrome.alarms.get(KEEPALIVE_ALARM, alarm => {
     if (!alarm) chrome.alarms.create(KEEPALIVE_ALARM, { periodInMinutes: KEEPALIVE_INTERVAL_MIN });
   });
-  chrome.alarms.get(HEALTH_POLL_ALARM, alarm => {
-    if (!alarm) chrome.alarms.create(HEALTH_POLL_ALARM, { periodInMinutes: HEALTH_POLL_INTERVAL_MIN });
-  });
+  // TODO Step 4: removed for extension-only migration
+  // chrome.alarms.get(HEALTH_POLL_ALARM, alarm => {
+  //   if (!alarm) chrome.alarms.create(HEALTH_POLL_ALARM, { periodInMinutes: HEALTH_POLL_INTERVAL_MIN });
+  // });
 }
 
 chrome.alarms.onAlarm.addListener(alarm => {
-  if (alarm.name === KEEPALIVE_ALARM)   return; // no-op; waking the SW is sufficient
-  if (alarm.name === HEALTH_POLL_ALARM) pollHealth().catch(console.error);
+  if (alarm.name === KEEPALIVE_ALARM) return; // no-op; waking the SW is sufficient
+  // TODO Step 4: removed for extension-only migration
+  // if (alarm.name === HEALTH_POLL_ALARM) pollHealth().catch(console.error);
 });
 
 // ---------------------------------------------------------------------------
-// Health monitoring
+// Health monitoring — removed for extension-only migration
 // ---------------------------------------------------------------------------
 
-async function pollHealth() {
-  let next;
-  try {
-    const data = await checkHealth();
-    next = { ok: true, version: data.version ?? '?', ts: Date.now() };
-  } catch {
-    next = { ok: false, ts: Date.now() };
-  }
-
-  const changed = !_lastHealth || _lastHealth.ok !== next.ok;
-  _lastHealth = next;
-
-  if (chrome.storage.session) {
-    chrome.storage.session
-      .set({ [STORAGE_KEYS.HEALTH_STATE]: next })
-      .catch(() => {});
-  }
-
-  if (changed) {
-    chrome.runtime.sendMessage(msg(MSG.HEALTH_STATUS_CHANGED, next)).catch(() => {});
-  }
-
-  return next;
-}
+// TODO Step 4: removed for extension-only migration — no Rust service to monitor.
+// async function pollHealth() {
+//   let next;
+//   try {
+//     const data = await checkHealth();
+//     next = { ok: true, version: data.version ?? '?', ts: Date.now() };
+//   } catch {
+//     next = { ok: false, ts: Date.now() };
+//   }
+//
+//   const changed = !_lastHealth || _lastHealth.ok !== next.ok;
+//   _lastHealth = next;
+//
+//   if (chrome.storage.session) {
+//     chrome.storage.session
+//       .set({ [STORAGE_KEYS.HEALTH_STATE]: next })
+//       .catch(() => {});
+//   }
+//
+//   if (changed) {
+//     chrome.runtime.sendMessage(msg(MSG.HEALTH_STATUS_CHANGED, next)).catch(() => {});
+//   }
+//
+//   return next;
+// }
 
 // ---------------------------------------------------------------------------
 // Fetch utilities
@@ -137,34 +144,44 @@ async function verifyOne(url) {
 
   scanQueue.markInFlight(url);
 
-  try {
-    const { mediaType, bytes } = await fetchAsBytes(url);
+  // TODO Step 4: removed for extension-only migration — rewrite with offscreen delegation.
+  // The block below called the Rust HTTP service via ipc-client.js.
+  // Step 4 will replace it with chrome.runtime.sendMessage(MSG.VERIFY_REQUEST)
+  // to the offscreen document.
+  //
+  // try {
+  //   const { mediaType, bytes } = await fetchAsBytes(url);
+  //
+  //   if (!SUPPORTED_MIME_TYPES.includes(mediaType)) {
+  //     const record = { sourceUrl: url, status: 'unsupported_format', manifest: null, error: null };
+  //     resultCache.set(url, { status: 'unsupported_format', manifest: null, error: null });
+  //     scanQueue.markDone(url, record);
+  //     return record;
+  //   }
+  //
+  //   const dataBase64 = bytesToBase64(bytes);
+  //   const apiResult  = await verifyAsset({ sourceUrl: url, mediaType, dataBase64 });
+  //   const record     = { sourceUrl: url, ...apiResult, error: null };
+  //
+  //   resultCache.set(url, { status: apiResult.status, manifest: apiResult.manifest ?? null, error: null });
+  //   scanQueue.markDone(url, record);
+  //   return record;
+  //
+  // } catch (err) {
+  //   const record = {
+  //     sourceUrl: url,
+  //     status:    'error',
+  //     manifest:  null,
+  //     error:     { code: err.code ?? 'UNKNOWN', message: err.message ?? String(err) },
+  //   };
+  //   scanQueue.markFailed(url, err);
+  //   return record;
+  // }
 
-    if (!SUPPORTED_MIME_TYPES.includes(mediaType)) {
-      const record = { sourceUrl: url, status: 'unsupported_format', manifest: null, error: null };
-      resultCache.set(url, { status: 'unsupported_format', manifest: null, error: null });
-      scanQueue.markDone(url, record);
-      return record;
-    }
-
-    const dataBase64 = bytesToBase64(bytes);
-    const apiResult  = await verifyAsset({ sourceUrl: url, mediaType, dataBase64 });
-    const record     = { sourceUrl: url, ...apiResult, error: null };
-
-    resultCache.set(url, { status: apiResult.status, manifest: apiResult.manifest ?? null, error: null });
-    scanQueue.markDone(url, record);
-    return record;
-
-  } catch (err) {
-    const record = {
-      sourceUrl: url,
-      status:    'error',
-      manifest:  null,
-      error:     { code: err.code ?? 'UNKNOWN', message: err.message ?? String(err) },
-    };
-    scanQueue.markFailed(url, err);
-    return record;
-  }
+  // Temporary stub — replaced in Step 4 with real offscreen delegation.
+  const record = { sourceUrl: url, status: 'error', manifest: null, error: { message: 'Step 4 not yet implemented' } };
+  scanQueue.markFailed(url, new Error('Step 4 not yet implemented'));
+  return record;
 }
 
 // ---------------------------------------------------------------------------
@@ -307,11 +324,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           return;
         }
 
-        case MSG.TEST_SERVICE: {
-          const health = await pollHealth();
-          sendResponse({ ok: health.ok, health: { version: health.version, ts: health.ts } });
-          return;
-        }
+        // TODO Step 4: removed for extension-only migration — no Rust service to test.
+        // case MSG.TEST_SERVICE: {
+        //   const health = await pollHealth();
+        //   sendResponse({ ok: health.ok, health: { version: health.version, ts: health.ts } });
+        //   return;
+        // }
 
         case MSG.CLEAR_CACHE: {
           resultCache.clear();
@@ -362,13 +380,15 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
 
 chrome.runtime.onInstalled.addListener(() => {
   ensureAlarms();
-  pollHealth().catch(console.error);
+  // TODO Step 4: removed for extension-only migration
+  // pollHealth().catch(console.error);
   console.log('[C2PA background] extension installed / updated.');
 });
 
 chrome.runtime.onStartup.addListener(() => {
   ensureAlarms();
-  pollHealth().catch(console.error);
+  // TODO Step 4: removed for extension-only migration
+  // pollHealth().catch(console.error);
   console.log('[C2PA background] browser started.');
 });
 

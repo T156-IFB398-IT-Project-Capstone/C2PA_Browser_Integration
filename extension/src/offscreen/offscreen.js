@@ -5,27 +5,12 @@
 // support that the MV3 service worker lacks.
 //
 // Message protocol (request/response via chrome.runtime.onMessage):
-//   IN  { type: 'c2pa/verify_request', payload: { bytes: ArrayBuffer, mimeType: string } }
+//   IN  { type: MSG.VERIFY_REQUEST, payload: { bytes: ArrayBuffer, mimeType: string } }
 //   OUT { status: string, manifest: object|null, error: { message: string }|null }
-//
-// TODO Step 3: replace inline string literals with imports from shared/messages.js
-//              and shared/constants.js once those modules are cleaned up.
 
-import { createC2pa } from '@contentauth/c2pa-web/inline';
-
-// ── Message type (inline until Step 3) ───────────────────────────────────────
-// TODO Step 3: import { MSG } from '../shared/messages.js'
-const VERIFY_REQUEST = 'c2pa/verify_request';
-
-// ── VERIFY_STATUS values (must stay in sync with shared/constants.js) ────────
-// TODO Step 3: import { VERIFY_STATUS } from '../shared/constants.js'
-const VS = {
-  TRUSTED:    'verified_trusted',
-  UNTRUSTED:  'verified_untrusted',
-  INVALID:    'invalid_or_changed',
-  NONE:       'no_credentials',
-  UNSUPPORTED:'unsupported_format',
-};
+import { createC2pa }               from '@contentauth/c2pa-web/inline';
+import { MSG }                       from '../shared/messages.js';
+import { VERIFY_STATUS }             from '../shared/constants.js';
 
 // ── SDK singleton ─────────────────────────────────────────────────────────────
 // Defer initialisation to the first verification request so the offscreen
@@ -40,7 +25,7 @@ function getSdk() {
 // ── Message listener ──────────────────────────────────────────────────────────
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message?.type !== VERIFY_REQUEST) return false;
+  if (message?.type !== MSG.VERIFY_REQUEST) return false;
 
   verify(message.payload)
     .then(sendResponse)
@@ -58,7 +43,7 @@ async function verify({ bytes, mimeType }) {
 
   if (!reader) {
     // fromBlob() returns null when the asset has no C2PA manifest.
-    return { status: VS.NONE, manifest: null, error: null };
+    return { status: VERIFY_STATUS.NO_CREDENTIALS, manifest: null, error: null };
   }
 
   const store = await reader.manifestStore();
@@ -80,10 +65,10 @@ async function verify({ bytes, mimeType }) {
 //   Invalid — signature broken or content tampered
 function stateToStatus(state) {
   switch (state) {
-    case 'Trusted': return VS.TRUSTED;
-    case 'Valid':   return VS.UNTRUSTED;
-    case 'Invalid': return VS.INVALID;
-    default:        return VS.INVALID;
+    case 'Trusted': return VERIFY_STATUS.VERIFIED_TRUSTED;
+    case 'Valid':   return VERIFY_STATUS.VERIFIED_UNTRUSTED;
+    case 'Invalid': return VERIFY_STATUS.INVALID_OR_CHANGED;
+    default:        return VERIFY_STATUS.INVALID_OR_CHANGED;
   }
 }
 
