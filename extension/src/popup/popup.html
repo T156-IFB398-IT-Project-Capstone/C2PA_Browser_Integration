@@ -15,52 +15,57 @@
         <div class="brand-sub">QUT × Databench</div>
       </div>
     </div>
-    <button id="btn-settings" class="icon-btn" title="Settings" aria-label="Open settings">
-      <span aria-hidden="true">⚙</span>
-    </button>
   </header>
 
-  <!-- Main view -->
+  <!-- ===== Main view ===== -->
   <main id="view-main" class="view">
-    <div id="service-status" class="service-banner service-banner--unknown">
-      <span class="dot" aria-hidden="true"></span>
-      <span class="service-label">Checking local service…</span>
+
+    <!-- Tab bar -->
+    <div class="tab-bar" role="tablist">
+      <button id="tab-scan" class="tab-btn tab-btn--active" role="tab" aria-selected="true"
+              aria-controls="panel-scan">Scan Results</button>
+      <button id="tab-live" class="tab-btn" role="tab" aria-selected="false"
+              aria-controls="panel-live">
+        Live Media
+        <span id="live-count-badge" class="live-badge hidden" aria-label="detected media count">0</span>
+      </button>
     </div>
 
-    <button id="btn-scan" class="primary-btn" disabled>Scan this page</button>
+    <!-- ── Scan panel (default visible) ─────────────────────────────────── -->
+    <div id="panel-scan" role="tabpanel" aria-labelledby="tab-scan">
+      <button id="btn-scan" class="primary-btn" disabled>Scan this page</button>
 
-    <div id="scan-meta" class="scan-meta hidden"></div>
+      <!-- Progress bar (visible during scan) -->
+      <div id="scan-progress" class="progress-wrap hidden" aria-live="polite" aria-label="Scan progress">
+        <div class="progress-track">
+          <div class="progress-fill" style="width:0%"></div>
+        </div>
+        <span class="progress-label"></span>
+      </div>
 
-    <ul id="results" class="results" aria-live="polite"></ul>
+      <div id="scan-meta" class="scan-meta hidden"></div>
 
-    <div id="empty" class="empty hidden">
-      <p>No images scanned yet on this page.</p>
-      <p class="hint">Click <strong>Scan this page</strong> to detect Content Credentials.</p>
+      <ul id="results" class="results" aria-live="polite"></ul>
+
+      <div id="empty" class="empty hidden">
+        <p>No images scanned yet on this page.</p>
+        <p class="hint">Click <strong>Scan this page</strong> to detect Content Credentials.</p>
+      </div>
     </div>
+
+    <!-- ── Live media panel (hidden until tab click) ─────────────────────── -->
+    <div id="panel-live" class="hidden" role="tabpanel" aria-labelledby="tab-live">
+      <div id="live-meta" class="scan-meta hidden"></div>
+
+      <ul id="live-list" class="results" aria-live="polite" aria-label="Live detected media"></ul>
+
+      <div id="live-empty" class="empty hidden">
+        <p>No media detected yet.</p>
+        <p class="hint">Media will appear here as it loads on the page.</p>
+      </div>
+    </div>
+
   </main>
-
-  <!-- Settings view -->
-  <section id="view-settings" class="view hidden">
-    <h2 class="view-title">Settings</h2>
-
-    <label class="field">
-      <span class="field-label">Shared secret</span>
-      <input id="input-secret" type="password" placeholder="Paste the value printed by the Rust service" autocomplete="off" />
-      <span class="field-hint">
-        Printed in your terminal on first run of <code>cargo run</code>.
-        Stored locally in <code>chrome.storage.local</code>.
-      </span>
-    </label>
-
-    <div class="actions">
-      <button id="btn-test" class="secondary-btn">Test connection</button>
-      <button id="btn-save" class="primary-btn">Save</button>
-    </div>
-
-    <div id="settings-feedback" class="feedback hidden"></div>
-
-    <button id="btn-back" class="link-btn">← Back</button>
-  </section>
 
   <script type="module" src="popup.js"></script>
 </body>
