@@ -52,26 +52,14 @@ async function verify({ bytes, mimeType }) {
   // does not support ArrayBuffer transfer). Reconstruct as Uint8Array.
   const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
 
-  // TEMPORARY DEBUG — remove before Step 6
-  console.log('[c2pa-debug] verify input:', {
-    bytesType:     bytes?.constructor?.name,
-    bytesLength:   Array.isArray(bytes) ? bytes.length : (bytes?.byteLength ?? '?'),
-    u8Length:      u8.length,
-    firstBytesHex: Array.from(u8.slice(0, 16)).map(b => b.toString(16).padStart(2, '0')).join(' '),
-    mimeType,
-  });
-
   const blob   = new Blob([u8], { type: mimeType });
   const reader = await c2pa.reader.fromBlob(mimeType, blob);
-
-  console.log('[c2pa-debug] reader:', reader === null ? 'null (no manifest)' : 'present');
 
   if (!reader) {
     return { status: VERIFY_STATUS.NO_CREDENTIALS, manifest: null, error: null };
   }
 
   const store = await reader.manifestStore();
-  console.log('[c2pa-debug] manifestStore output:', JSON.stringify(store, null, 2));
   await reader.free();
 
   return {
@@ -97,46 +85,61 @@ function stateToStatus(state) {
   }
 }
 
-// Build the manifest summary that popup.js renderItem() reads.
-//
-// THREE FIELD GAPS exist between popup.js expectations and c2pa-web's real
-// output shape. Documented fully in C2PA_API_NOTES.md. Step 6 will update
-// popup.js to use the correct field paths; until then this function adapts
-// the c2pa-web output to match what popup.js already expects.
 function extractManifest(store) {
   const label = store.active_manifest;
   if (!label) return null;
   const m = store.manifests?.[label];
   if (!m) return null;
 
-  // GAP 1 — popup.js reads `manifest.creator`.
-  // c2pa-web has no `.creator` field; nearest equivalent is claim_generator_info[0].name
-  // (the human-readable name of the tool that produced the manifest) or the raw
-  // claim_generator string as a fallback.
-  const creator = m.claim_generator_info?.[0]?.name ?? m.claim_generator ?? null;
-
-  // GAP 2 — popup.js reads `manifest.ai_disclosure` (boolean).
-  // c2pa-web has no `.ai_disclosure` field; detect AI by scanning assertion labels.
-  // Common AI assertion labels: c2pa.ai.generative.training, c2pa.ai_generative.training.
-  // Step 6 can refine this to also check stds.schema-org.CreativeWork digitalSourceType.
+  const creator       = extractCreator(m);
   const ai_disclosure = hasAiAssertion(m.assertions);
-
-  // GAP 3 — popup.js reads `manifest.signer?.common_name`.
-  // c2pa-web stores this under `signature_info.common_name`, not `signer.common_name`.
-  // Wrapping here to match the shape popup.js already expects; Step 6 will align paths.
-  const signer = m.signature_info?.common_name
+  const signer        = m.signature_info?.common_name
     ? { common_name: m.signature_info.common_name }
     : null;
 
   return { creator, ai_disclosure, signer };
 }
 
-// Return true if any assertion label contains an AI-related keyword.
-// C2PA AI assertion labels seen in real manifests:
-//   c2pa.ai.generative.training
-//   c2pa.ai_generative.training
-//   stds.schema-org.CreativeWork (needs data.digitalSourceType inspection — Step 6)
+// Resolve the most meaningful creator string for the popup.
+// Priority:
+//   1. Human author from stds.schema-org.CreativeWork data.author[0].name
+//   2. Tool name from claim_generator_info[0].name  (e.g. "Adobe Photoshop")
+//   3. Raw claim_generator string (user-agent format)
+// AI-generated content typically has no human author entry, so falls to (2).
+function extractCreator(manifest) {
+  const cw = Array.isArray(manifest.assertions)
+    ? manifest.assertions.find(a => a?.label === 'stds.schema-org.CreativeWork')
+    : null;
+  const authorName = cw?.data?.author?.[0]?.name;
+  if (typeof authorName === 'string' && authorName.length > 0) return authorName;
+
+  return manifest.claim_generator_info?.[0]?.name
+      ?? manifest.claim_generator
+      ?? null;
+}
+
+// Detect AI-generated content by inspecting c2pa.actions / c2pa.actions.v2
+// assertion data for IPTC digitalSourceType values.
+// Real-world AI manifests (ChatGPT, Firefly, Sora) embed this in action objects,
+// not in the assertion label — label-pattern matching misses them entirely.
 function hasAiAssertion(assertions) {
   if (!Array.isArray(assertions)) return false;
-  return assertions.some(a => typeof a.label === 'string' && /\bai\b/i.test(a.label));
+
+  const AI_SOURCE_TYPES = [
+    'trainedAlgorithmicMedia',
+    'compositeWithTrainedAlgorithmicMedia',
+    'algorithmicMedia',
+  ];
+
+  for (const assertion of assertions) {
+    if (!/^c2pa\.actions(\.v\d+)?$/.test(assertion?.label ?? '')) continue;
+    const actions = assertion?.data?.actions;
+    if (!Array.isArray(actions)) continue;
+    for (const action of actions) {
+      const dst = action?.digitalSourceType ?? '';
+      if (AI_SOURCE_TYPES.some(t => dst.includes(t))) return true;
+    }
+  }
+
+  return false;
 }

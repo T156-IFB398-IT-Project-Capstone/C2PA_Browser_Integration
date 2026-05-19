@@ -336,7 +336,7 @@ function renderItem(item) {
 function statusToLabel(status) {
   switch (status) {
     case VERIFY_STATUS.VERIFIED_TRUSTED:    return 'Verified — trusted';
-    case VERIFY_STATUS.VERIFIED_UNTRUSTED:  return 'Verified — signer not trusted';
+    case VERIFY_STATUS.VERIFIED_UNTRUSTED:  return 'Signed — provider not in trust list';
     case VERIFY_STATUS.INVALID_OR_CHANGED:  return 'Invalid or changed';
     case VERIFY_STATUS.NO_CREDENTIALS:      return 'No Content Credentials';
     case VERIFY_STATUS.UNSUPPORTED_FORMAT:  return 'Format not supported';

@@ -13,6 +13,12 @@ Phase 2 design directions: extended bundled trust list, three-tier UI
 (Trusted / Known / Unknown), transparent metadata display, or user-configurable
 trust additions. Recommend discussion with industry partner.
 
+**Phase 1 partial fix (Step 6.1):** The `verified_untrusted` status label was
+relabelled from "Verified — signer not trusted" to "Signed — provider not in
+trust list" to reduce the perception of a security warning on legitimate
+Adobe/OpenAI content. This does not address the underlying trust-tier UX
+question; Phase 2 UX research is still required.
+
 ## L2 — Asset size cap
 
 15 MB cap for verification, down from 50 MB in the original hybrid
