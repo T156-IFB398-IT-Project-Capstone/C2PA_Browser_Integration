@@ -50,16 +50,28 @@ async function verify({ bytes, mimeType }) {
 
   // service-worker.js sends bytes as a plain number array (chrome.runtime
   // does not support ArrayBuffer transfer). Reconstruct as Uint8Array.
-  const u8     = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+
+  // TEMPORARY DEBUG — remove before Step 6
+  console.log('[c2pa-debug] verify input:', {
+    bytesType:     bytes?.constructor?.name,
+    bytesLength:   Array.isArray(bytes) ? bytes.length : (bytes?.byteLength ?? '?'),
+    u8Length:      u8.length,
+    firstBytesHex: Array.from(u8.slice(0, 16)).map(b => b.toString(16).padStart(2, '0')).join(' '),
+    mimeType,
+  });
+
   const blob   = new Blob([u8], { type: mimeType });
   const reader = await c2pa.reader.fromBlob(mimeType, blob);
 
+  console.log('[c2pa-debug] reader:', reader === null ? 'null (no manifest)' : 'present');
+
   if (!reader) {
-    // fromBlob() returns null when the asset has no C2PA manifest.
     return { status: VERIFY_STATUS.NO_CREDENTIALS, manifest: null, error: null };
   }
 
   const store = await reader.manifestStore();
+  console.log('[c2pa-debug] manifestStore output:', JSON.stringify(store, null, 2));
   await reader.free();
 
   return {
