@@ -1,9 +1,132 @@
 // extension/src/offscreen/offscreen.js
 //
-// PLACEHOLDER — Step 1 build-tooling stub only.
-// Real implementation added in Step 2 (c2pa-js WASM integration).
+// C2PA verification via @contentauth/c2pa-web (inline WASM mode).
+// Runs inside a Chrome Offscreen Document, which has full Web Worker + WASM
+// support that the MV3 service worker lacks.
 //
-// TODO: removed for extension-only migration — see MIGRATION_AUDIT.md
-// This file will be replaced in Step 2 with the full c2pa-js verifier.
+// Message protocol (request/response via chrome.runtime.onMessage):
+//   IN  { type: 'c2pa/verify_request', payload: { bytes: ArrayBuffer, mimeType: string } }
+//   OUT { status: string, manifest: object|null, error: { message: string }|null }
+//
+// TODO Step 3: replace inline string literals with imports from shared/messages.js
+//              and shared/constants.js once those modules are cleaned up.
 
-console.log('[C2PA offscreen] placeholder loaded — Step 2 will replace this.');
+import { createC2pa } from '@contentauth/c2pa-web/inline';
+
+// ── Message type (inline until Step 3) ───────────────────────────────────────
+// TODO Step 3: import { MSG } from '../shared/messages.js'
+const VERIFY_REQUEST = 'c2pa/verify_request';
+
+// ── VERIFY_STATUS values (must stay in sync with shared/constants.js) ────────
+// TODO Step 3: import { VERIFY_STATUS } from '../shared/constants.js'
+const VS = {
+  TRUSTED:    'verified_trusted',
+  UNTRUSTED:  'verified_untrusted',
+  INVALID:    'invalid_or_changed',
+  NONE:       'no_credentials',
+  UNSUPPORTED:'unsupported_format',
+};
+
+// ── SDK singleton ─────────────────────────────────────────────────────────────
+// Defer initialisation to the first verification request so the offscreen
+// document starts up fast. Reuse the same instance for all subsequent calls.
+let _sdkPromise = null;
+
+function getSdk() {
+  if (!_sdkPromise) _sdkPromise = createC2pa();
+  return _sdkPromise;
+}
+
+// ── Message listener ──────────────────────────────────────────────────────────
+
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type !== VERIFY_REQUEST) return false;
+
+  verify(message.payload)
+    .then(sendResponse)
+    .catch(err => sendResponse({ status: 'error', manifest: null, error: { message: err.message } }));
+
+  return true; // keep the message channel open for the async sendResponse
+});
+
+// ── Core verification ─────────────────────────────────────────────────────────
+
+async function verify({ bytes, mimeType }) {
+  const c2pa   = await getSdk();
+  const blob   = new Blob([bytes], { type: mimeType });
+  const reader = await c2pa.reader.fromBlob(mimeType, blob);
+
+  if (!reader) {
+    // fromBlob() returns null when the asset has no C2PA manifest.
+    return { status: VS.NONE, manifest: null, error: null };
+  }
+
+  const store = await reader.manifestStore();
+  await reader.free();
+
+  return {
+    status:   stateToStatus(store.validation_state),
+    manifest: extractManifest(store),
+    error:    null,
+  };
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+// Map c2pa-web ValidationState → VERIFY_STATUS string.
+// c2pa-web states: "Trusted" | "Valid" | "Invalid"
+//   Trusted — signature valid AND signer is in the trust list
+//   Valid   — signature valid but signer not in trust list (self-signed etc.)
+//   Invalid — signature broken or content tampered
+function stateToStatus(state) {
+  switch (state) {
+    case 'Trusted': return VS.TRUSTED;
+    case 'Valid':   return VS.UNTRUSTED;
+    case 'Invalid': return VS.INVALID;
+    default:        return VS.INVALID;
+  }
+}
+
+// Build the manifest summary that popup.js renderItem() reads.
+//
+// THREE FIELD GAPS exist between popup.js expectations and c2pa-web's real
+// output shape. Documented fully in C2PA_API_NOTES.md. Step 6 will update
+// popup.js to use the correct field paths; until then this function adapts
+// the c2pa-web output to match what popup.js already expects.
+function extractManifest(store) {
+  const label = store.active_manifest;
+  if (!label) return null;
+  const m = store.manifests?.[label];
+  if (!m) return null;
+
+  // GAP 1 — popup.js reads `manifest.creator`.
+  // c2pa-web has no `.creator` field; nearest equivalent is claim_generator_info[0].name
+  // (the human-readable name of the tool that produced the manifest) or the raw
+  // claim_generator string as a fallback.
+  const creator = m.claim_generator_info?.[0]?.name ?? m.claim_generator ?? null;
+
+  // GAP 2 — popup.js reads `manifest.ai_disclosure` (boolean).
+  // c2pa-web has no `.ai_disclosure` field; detect AI by scanning assertion labels.
+  // Common AI assertion labels: c2pa.ai.generative.training, c2pa.ai_generative.training.
+  // Step 6 can refine this to also check stds.schema-org.CreativeWork digitalSourceType.
+  const ai_disclosure = hasAiAssertion(m.assertions);
+
+  // GAP 3 — popup.js reads `manifest.signer?.common_name`.
+  // c2pa-web stores this under `signature_info.common_name`, not `signer.common_name`.
+  // Wrapping here to match the shape popup.js already expects; Step 6 will align paths.
+  const signer = m.signature_info?.common_name
+    ? { common_name: m.signature_info.common_name }
+    : null;
+
+  return { creator, ai_disclosure, signer };
+}
+
+// Return true if any assertion label contains an AI-related keyword.
+// C2PA AI assertion labels seen in real manifests:
+//   c2pa.ai.generative.training
+//   c2pa.ai_generative.training
+//   stds.schema-org.CreativeWork (needs data.digitalSourceType inspection — Step 6)
+function hasAiAssertion(assertions) {
+  if (!Array.isArray(assertions)) return false;
+  return assertions.some(a => typeof a.label === 'string' && /\bai\b/i.test(a.label));
+}
