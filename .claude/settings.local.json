@@ -2,7 +2,12 @@
   "permissions": {
     "allow": [
       "Bash(cargo test *)",
-      "Bash(cargo check *)"
+      "Bash(cargo check *)",
+      "WebFetch(domain:opensource.contentauthenticity.org)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:github.com)",
+      "Bash(curl -s https://api.github.com/repos/contentauth/c2pa-js/readme)",
+      "WebSearch"
     ]
   }
 }
