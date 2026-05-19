@@ -2,29 +2,23 @@
 //
 // MV3 service worker — orchestrates the verification pipeline.
 //
-// Sprint 1/2 baseline:
-//   Receive media URLs → fetch bytes → forward to Rust service → return results.
+// Architecture (extension-only, Step 4+):
+//   Content script detects media URLs → SW fetches bytes → delegates to
+//   offscreen document via MSG.VERIFY_REQUEST → offscreen runs c2pa-web WASM
+//   → SW receives { status, manifest } → caches result → popup renders.
 //
-// Sprint 3 additions:
+// Sprint 3 additions retained:
 //   - chrome.alarms keepalive (24 s) prevents premature SW termination.
-//   - Periodic health poll (30 s) persisted to session storage and broadcast.
 //   - ScanQueue deduplicates in-flight URL verifications within 60 s.
 //   - ResultCache short-circuits repeat verifications within 5 min.
 //   - Bounded concurrency (SCAN_CONCURRENCY = 3).
 //   - Per-item SCAN_PROGRESS messages for the popup progress bar.
-//   - Graceful offline handling via circuit-breaker error codes.
 //
-// Sprint 3/4 realtime tracking additions:
+// Sprint 3/4 realtime tracking retained:
 //   - TabMediaRegistry stores all media detected per tab session.
-//   - MEDIA_DETECTED now updates the registry and pushes MEDIA_UPDATED to popup.
+//   - MEDIA_DETECTED updates the registry and pushes MEDIA_UPDATED to popup.
 //   - GET_TAB_MEDIA returns the current tab's full media list on demand.
-//   - chrome.tabs.onRemoved clears registry when a tab closes.
-//   - chrome.tabs.onUpdated clears registry on navigation (status: 'loading').
-//
-// Extension-only migration (Step 3/4):
-//   - ipc-client.js import commented out — Step 4 replaces with offscreen messaging.
-//   - Health poll removed — no Rust service to monitor.
-//   - verifyOne() body commented out — Step 4 rewrites with offscreen delegation.
+//   - chrome.tabs.onRemoved / onUpdated keep the registry tidy.
 
 import { MSG, msg }         from '../shared/messages.js';
 import { ResultCache }      from '../shared/result-cache.js';
@@ -37,9 +31,10 @@ import {
   SCAN_CONCURRENCY,
   KEEPALIVE_ALARM,
   KEEPALIVE_INTERVAL_MIN,
+  OFFSCREEN_URL,
+  OFFSCREEN_REASON,
+  VERIFY_STATUS,
 } from '../shared/constants.js';
-// TODO Step 4: removed for extension-only migration
-// import { verifyAsset, checkHealth } from '../shared/ipc-client.js';
 
 // ---------------------------------------------------------------------------
 // Module-level singletons (survive within one SW lifetime)
@@ -49,9 +44,6 @@ const scanQueue        = new ScanQueue({ maxAge: 60_000 });
 const resultCache      = new ResultCache();
 const tabMediaRegistry = new TabMediaRegistry();
 
-// TODO Step 4: removed for extension-only migration
-// let _lastHealth = null;
-
 // ---------------------------------------------------------------------------
 // MV3 keepalive alarm
 // ---------------------------------------------------------------------------
@@ -60,47 +52,30 @@ function ensureAlarms() {
   chrome.alarms.get(KEEPALIVE_ALARM, alarm => {
     if (!alarm) chrome.alarms.create(KEEPALIVE_ALARM, { periodInMinutes: KEEPALIVE_INTERVAL_MIN });
   });
-  // TODO Step 4: removed for extension-only migration
-  // chrome.alarms.get(HEALTH_POLL_ALARM, alarm => {
-  //   if (!alarm) chrome.alarms.create(HEALTH_POLL_ALARM, { periodInMinutes: HEALTH_POLL_INTERVAL_MIN });
-  // });
 }
 
 chrome.alarms.onAlarm.addListener(alarm => {
   if (alarm.name === KEEPALIVE_ALARM) return; // no-op; waking the SW is sufficient
-  // TODO Step 4: removed for extension-only migration
-  // if (alarm.name === HEALTH_POLL_ALARM) pollHealth().catch(console.error);
 });
 
 // ---------------------------------------------------------------------------
-// Health monitoring — removed for extension-only migration
+// Offscreen document lifecycle
 // ---------------------------------------------------------------------------
 
-// TODO Step 4: removed for extension-only migration — no Rust service to monitor.
-// async function pollHealth() {
-//   let next;
-//   try {
-//     const data = await checkHealth();
-//     next = { ok: true, version: data.version ?? '?', ts: Date.now() };
-//   } catch {
-//     next = { ok: false, ts: Date.now() };
-//   }
-//
-//   const changed = !_lastHealth || _lastHealth.ok !== next.ok;
-//   _lastHealth = next;
-//
-//   if (chrome.storage.session) {
-//     chrome.storage.session
-//       .set({ [STORAGE_KEYS.HEALTH_STATE]: next })
-//       .catch(() => {});
-//   }
-//
-//   if (changed) {
-//     chrome.runtime.sendMessage(msg(MSG.HEALTH_STATUS_CHANGED, next)).catch(() => {});
-//   }
-//
-//   return next;
-// }
+// Serialises concurrent createDocument() calls so only one is in flight.
+let _offscreenCreating = null;
+
+async function ensureOffscreen() {
+  if (await chrome.offscreen.hasDocument()) return;
+  if (!_offscreenCreating) {
+    _offscreenCreating = chrome.offscreen.createDocument({
+      url:           OFFSCREEN_URL,
+      reasons:       [chrome.offscreen.Reason[OFFSCREEN_REASON]],
+      justification: 'C2PA WASM verification requires Web Worker support unavailable in service workers.',
+    }).finally(() => { _offscreenCreating = null; });
+  }
+  await _offscreenCreating;
+}
 
 // ---------------------------------------------------------------------------
 // Fetch utilities
@@ -125,17 +100,8 @@ async function fetchAsBytes(url) {
   return { mediaType, bytes: new Uint8Array(buf) };
 }
 
-function bytesToBase64(bytes) {
-  const CHUNK = 0x8000;
-  const parts = [];
-  for (let i = 0; i < bytes.length; i += CHUNK) {
-    parts.push(String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK)));
-  }
-  return btoa(parts.join(''));
-}
-
 // ---------------------------------------------------------------------------
-// Verification pipeline (cache + queue + graceful errors)
+// Verification pipeline (cache → offscreen WASM → cache write)
 // ---------------------------------------------------------------------------
 
 async function verifyOne(url) {
@@ -144,44 +110,45 @@ async function verifyOne(url) {
 
   scanQueue.markInFlight(url);
 
-  // TODO Step 4: removed for extension-only migration — rewrite with offscreen delegation.
-  // The block below called the Rust HTTP service via ipc-client.js.
-  // Step 4 will replace it with chrome.runtime.sendMessage(MSG.VERIFY_REQUEST)
-  // to the offscreen document.
-  //
-  // try {
-  //   const { mediaType, bytes } = await fetchAsBytes(url);
-  //
-  //   if (!SUPPORTED_MIME_TYPES.includes(mediaType)) {
-  //     const record = { sourceUrl: url, status: 'unsupported_format', manifest: null, error: null };
-  //     resultCache.set(url, { status: 'unsupported_format', manifest: null, error: null });
-  //     scanQueue.markDone(url, record);
-  //     return record;
-  //   }
-  //
-  //   const dataBase64 = bytesToBase64(bytes);
-  //   const apiResult  = await verifyAsset({ sourceUrl: url, mediaType, dataBase64 });
-  //   const record     = { sourceUrl: url, ...apiResult, error: null };
-  //
-  //   resultCache.set(url, { status: apiResult.status, manifest: apiResult.manifest ?? null, error: null });
-  //   scanQueue.markDone(url, record);
-  //   return record;
-  //
-  // } catch (err) {
-  //   const record = {
-  //     sourceUrl: url,
-  //     status:    'error',
-  //     manifest:  null,
-  //     error:     { code: err.code ?? 'UNKNOWN', message: err.message ?? String(err) },
-  //   };
-  //   scanQueue.markFailed(url, err);
-  //   return record;
-  // }
+  try {
+    const { mediaType, bytes } = await fetchAsBytes(url);
 
-  // Temporary stub — replaced in Step 4 with real offscreen delegation.
-  const record = { sourceUrl: url, status: 'error', manifest: null, error: { message: 'Step 4 not yet implemented' } };
-  scanQueue.markFailed(url, new Error('Step 4 not yet implemented'));
-  return record;
+    if (!SUPPORTED_MIME_TYPES.includes(mediaType)) {
+      const record = { sourceUrl: url, status: VERIFY_STATUS.UNSUPPORTED_FORMAT, manifest: null, error: null };
+      resultCache.set(url, { status: VERIFY_STATUS.UNSUPPORTED_FORMAT, manifest: null, error: null });
+      scanQueue.markDone(url, record);
+      return record;
+    }
+
+    await ensureOffscreen();
+
+    // bytes.buffer is safe here: fetchAsBytes creates Uint8Array directly from
+    // arrayBuffer(), so byteOffset === 0 and buffer.byteLength === bytes.byteLength.
+    const response = await chrome.runtime.sendMessage(
+      msg(MSG.VERIFY_REQUEST, { bytes: bytes.buffer, mimeType: mediaType })
+    );
+
+    const record = {
+      sourceUrl: url,
+      status:    response.status,
+      manifest:  response.manifest ?? null,
+      error:     response.error   ?? null,
+    };
+
+    resultCache.set(url, { status: record.status, manifest: record.manifest, error: record.error });
+    scanQueue.markDone(url, record);
+    return record;
+
+  } catch (err) {
+    const record = {
+      sourceUrl: url,
+      status:    'error',
+      manifest:  null,
+      error:     { message: err.message ?? String(err) },
+    };
+    scanQueue.markFailed(url, err);
+    return record;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -207,7 +174,7 @@ async function runConcurrent(tasks, limit) {
 }
 
 // ---------------------------------------------------------------------------
-// Active-tab scan (unchanged Sprint 3 logic)
+// Active-tab scan
 // ---------------------------------------------------------------------------
 
 async function scanActiveTab() {
@@ -254,10 +221,6 @@ async function scanActiveTab() {
 // Realtime tracking helpers
 // ---------------------------------------------------------------------------
 
-/**
- * Push the current media state for a tab to any open popup.
- * Silently no-ops if the popup is closed (sendMessage rejects).
- */
 function broadcastMediaUpdate(tabId) {
   const media   = tabMediaRegistry.getAll(tabId);
   const pageUrl = tabMediaRegistry.getPageUrl(tabId);
@@ -276,7 +239,6 @@ function broadcastMediaUpdate(tabId) {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   ensureAlarms();
 
-  // Capture tab ID before entering the async IIFE — sender stays valid in closure.
   const senderTabId = sender?.tab?.id ?? null;
 
   (async () => {
@@ -289,9 +251,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           const { media = [], pageUrl = '' } = message.payload ?? {};
           if (senderTabId !== null) {
             const { newItems } = tabMediaRegistry.update(senderTabId, pageUrl, media);
-            if (newItems.length > 0) {
-              broadcastMediaUpdate(senderTabId);
-            }
+            if (newItems.length > 0) broadcastMediaUpdate(senderTabId);
           }
           sendResponse({ ok: true });
           return;
@@ -324,12 +284,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           return;
         }
 
-        // TODO Step 4: removed for extension-only migration — no Rust service to test.
-        // case MSG.TEST_SERVICE: {
-        //   const health = await pollHealth();
-        //   sendResponse({ ok: health.ok, health: { version: health.version, ts: health.ts } });
-        //   return;
-        // }
+        // ── Cache / queue management (Sprint 4 prep) ─────────────────────── //
 
         case MSG.CLEAR_CACHE: {
           resultCache.clear();
@@ -363,11 +318,8 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 });
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
-  // 'loading' fires once at the start of a top-level navigation.
-  // Clear old media so the live panel resets for the new page.
   if (changeInfo.status === 'loading') {
     tabMediaRegistry.clear(tabId);
-    // Notify any open popup so the live panel empties immediately.
     chrome.runtime.sendMessage(msg(MSG.MEDIA_UPDATED, {
       tabId, media: [], pageUrl: '', count: 0,
     })).catch(() => {});
@@ -380,15 +332,14 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
 
 chrome.runtime.onInstalled.addListener(() => {
   ensureAlarms();
-  // TODO Step 4: removed for extension-only migration
-  // pollHealth().catch(console.error);
+  // Warm the WASM runtime so the first scan doesn't pay the init cost.
+  ensureOffscreen().catch(console.error);
   console.log('[C2PA background] extension installed / updated.');
 });
 
 chrome.runtime.onStartup.addListener(() => {
   ensureAlarms();
-  // TODO Step 4: removed for extension-only migration
-  // pollHealth().catch(console.error);
+  ensureOffscreen().catch(console.error);
   console.log('[C2PA background] browser started.');
 });
 
