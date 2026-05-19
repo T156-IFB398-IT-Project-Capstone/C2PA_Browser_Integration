@@ -8,7 +8,7 @@ and the VERIFY_STATUS mapping used in offscreen.js.
 
 ## 1. Node.js Validation Attempt
 
-`scripts/validate-c2pa-api.mjs` was run against `test-assets/signed/04-adobe-signed-edited.jpg`
+`scripts/validate-c2pa-api.mjs` was run against `test-assets/trusted/earth_apollo17.jpg`
 (the `earth_apollo17.jpg` fixture from the `contentauth/c2pa-rs` GitHub repo, 180 KB).
 
 **Result:** Failed at `createC2pa()` with:
@@ -203,8 +203,8 @@ shape must happen in the extension itself. Procedure once test images are in pla
    ```js
    console.log('[c2pa-debug] store:', JSON.stringify(store, null, 2));
    ```
-4. Navigate to a page with a signed image, or drag `test-assets/signed/04-adobe-signed-edited.jpg`
-   onto a local HTML page
+4. Serve a signed image from `test-assets/trusted/` via a local HTTP server and navigate to it,
+   or open `scripts/validate-c2pa-browser.html` (not yet created) in the browser
 5. Click "Scan this page" in the popup
 6. Open the offscreen document DevTools:
    `chrome://extensions` → find the extension → "Inspect views" → select the offscreen document
@@ -215,10 +215,14 @@ shape must happen in the extension itself. Procedure once test images are in pla
 ### Test assets
 
 | File | Source | Status |
-|---|---|---|
-| `test-assets/signed/04-adobe-signed-edited.jpg` | `contentauth/c2pa-rs` `earth_apollo17.jpg` fixture | Downloaded — 180 KB |
-| `test-assets/signed/01-no-manifest.jpg` | Any plain JPEG | Not yet added |
-| `test-assets/signed/06-tampered.jpg` | c2patool + hex edit | Not yet added |
+| --- | --- | --- |
+| `test-assets/trusted/earth_apollo17.jpg` | `contentauth/c2pa-rs` fixture — 180 KB | Available |
+| `test-assets/trusted/car.jpg` | Adobe Photoshop manifest | Available |
+| `test-assets/trusted/ChatGPTgen.png` | ChatGPT/OpenAI manifest | Available |
+| `test-assets/untrusted/test_ai_verified.jpg` | Self-signed AI manifest | Available |
+| `test-assets/untrusted/test_human_verified.jpg` | Self-signed human manifest | Available |
+| `test-assets/no-manifest/cloudmountain.jpg` | Plain JPEG — no C2PA | Available |
+| `test-assets/tampered/` | Tampered samples | TODO — see `docs/c2patool-guide.md` |
 
 ---
 

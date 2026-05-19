@@ -21,7 +21,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join }  from 'node:path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const ASSET     = join(__dirname, '../test-assets/signed/04-adobe-signed-edited.jpg');
+const ASSET     = join(__dirname, '../test-assets/trusted/earth_apollo17.jpg');
 
 console.log('='.repeat(60));
 console.log('C2PA API output validator');
@@ -57,7 +57,7 @@ try {
   console.log(`  ✓ loaded ${ASSET} (${bytes.byteLength.toLocaleString()} bytes)`);
 } catch (err) {
   console.error('  ✗ could not read test asset:', err.message);
-  console.error('    Add a signed JPEG to test-assets/signed/04-adobe-signed-edited.jpg');
+  console.error('    Add a signed JPEG to test-assets/trusted/earth_apollo17.jpg');
   process.exit(1);
 }
 
