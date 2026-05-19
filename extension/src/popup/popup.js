@@ -1,22 +1,10 @@
 // src/popup/popup.js
 //
-// Sprint 1/2 baseline: settings management, scan trigger, result rendering.
-// Sprint 3 additions:
-//   - Progress bar via SCAN_PROGRESS messages.
-//   - HEALTH_STATUS_CHANGED listener keeps banner in sync without polling.
-//   - Offline guide shown/hidden based on service state.
-//   - Session-storage fast path for cached health state on popup open.
-//   - Kind badge and cache indicator in scan result items.
-//   - Scan timestamp shown in meta bar.
-// Sprint 3/4 realtime tracking additions:
-//   - Tab bar: "Scan Results" | "Live Media"
-//   - Live media panel with auto-updating list from MEDIA_UPDATED push events.
-//   - GET_TAB_MEDIA fetched on popup open to pre-populate count badge.
-//   - MEDIA_UPDATED listener updates badge + rerenders live list if visible.
-//   - Tab navigation clears the live panel immediately.
+// Popup UI — scan trigger, result rendering, live media panel.
+// Verification runs via WASM offscreen document — no service health check needed.
 
-import { MSG, msg }             from '../shared/messages.js';
-import { STORAGE_KEYS, VERIFY_STATUS } from '../shared/constants.js';
+import { MSG, msg }      from '../shared/messages.js';
+import { VERIFY_STATUS } from '../shared/constants.js';
 
 // ---------------------------------------------------------------------------
 // DOM refs
@@ -24,101 +12,35 @@ import { STORAGE_KEYS, VERIFY_STATUS } from '../shared/constants.js';
 
 const $ = id => document.getElementById(id);
 
-// Header / navigation
-const viewMain      = $('view-main');
-const viewSettings  = $('view-settings');
-const btnSettings   = $('btn-settings');
-const btnBack       = $('btn-back');
-const btnSave       = $('btn-save');
-const btnTest       = $('btn-test');
-const inputSecret   = $('input-secret');
-const serviceStatus = $('service-status');
-const feedback      = $('settings-feedback');
-const offlineGuide  = $('offline-guide');
-
 // Tab bar
-const tabScan       = $('tab-scan');
-const tabLive       = $('tab-live');
-const panelScan     = $('panel-scan');
-const panelLive     = $('panel-live');
+const tabScan        = $('tab-scan');
+const tabLive        = $('tab-live');
+const panelScan      = $('panel-scan');
+const panelLive      = $('panel-live');
 const liveCountBadge = $('live-count-badge');
 
 // Scan panel
-const btnScan       = $('btn-scan');
-const resultsList   = $('results');
-const scanMeta      = $('scan-meta');
-const emptyState    = $('empty');
-const progressWrap  = $('scan-progress');
+const btnScan      = $('btn-scan');
+const resultsList  = $('results');
+const scanMeta     = $('scan-meta');
+const emptyState   = $('empty');
+const progressWrap = $('scan-progress');
 
 // Live panel
-const liveList      = $('live-list');
-const liveMeta      = $('live-meta');
-const liveEmpty     = $('live-empty');
+const liveList  = $('live-list');
+const liveMeta  = $('live-meta');
+const liveEmpty = $('live-empty');
 
 // ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
 
 /** ID of the tab the popup is associated with; set during init(). */
-let _currentTabId  = null;
+let _currentTabId = null;
 /** Which tab panel is currently visible: 'scan' | 'live' */
-let _activePanel   = 'scan';
+let _activePanel  = 'scan';
 /** Maximum number of live items rendered in one pass. */
 const LIVE_MAX_DISPLAY = 50;
-
-// ---------------------------------------------------------------------------
-// View routing (main ↔ settings)
-// ---------------------------------------------------------------------------
-
-btnSettings.addEventListener('click', async () => {
-  const stored = await chrome.storage.local.get(STORAGE_KEYS.SHARED_SECRET);
-  inputSecret.value = stored[STORAGE_KEYS.SHARED_SECRET] ?? '';
-  viewMain.classList.add('hidden');
-  viewSettings.classList.remove('hidden');
-  feedback.classList.add('hidden');
-});
-
-btnBack.addEventListener('click', () => {
-  viewSettings.classList.add('hidden');
-  viewMain.classList.remove('hidden');
-});
-
-// ---------------------------------------------------------------------------
-// Settings
-// ---------------------------------------------------------------------------
-
-btnSave.addEventListener('click', async () => {
-  const secret = inputSecret.value.trim();
-  if (!secret) { showFeedback('Paste a shared secret first.', false); return; }
-  await chrome.storage.local.set({ [STORAGE_KEYS.SHARED_SECRET]: secret });
-  showFeedback('Saved. Click "Test connection" to confirm.', true);
-  refreshServiceStatus();
-});
-
-btnTest.addEventListener('click', async () => {
-  btnTest.disabled = true;
-  try {
-    const response = await chrome.runtime.sendMessage(msg(MSG.TEST_SERVICE));
-    if (response?.ok) {
-      showFeedback(`Service online (v${response.health?.version ?? '?'}).`, true);
-      setServiceBanner('ok', `Local service: online (v${response.health?.version ?? '?'})`);
-    } else {
-      showFeedback(response?.error ?? 'Service unreachable.', false);
-      setServiceBanner('down', 'Local service: unreachable');
-    }
-  } catch (err) {
-    showFeedback(err.message, false);
-    setServiceBanner('down', 'Local service: unreachable');
-  } finally {
-    btnTest.disabled = false;
-  }
-});
-
-function showFeedback(text, ok) {
-  feedback.textContent = text;
-  feedback.classList.remove('hidden', 'feedback--ok', 'feedback--err');
-  feedback.classList.add(ok ? 'feedback--ok' : 'feedback--err');
-}
 
 // ---------------------------------------------------------------------------
 // Tab bar
@@ -180,18 +102,8 @@ chrome.runtime.onMessage.addListener(message => {
     setProgress(done, total);
   }
 
-  if (message?.type === MSG.HEALTH_STATUS_CHANGED) {
-    const { ok, version } = message.payload ?? {};
-    if (ok) {
-      setServiceBanner('ok', `Local service: online (v${version ?? '?'})`);
-    } else {
-      setServiceBanner('down', 'Local service: unreachable');
-    }
-  }
-
   if (message?.type === MSG.MEDIA_UPDATED) {
     const { tabId, media = [], pageUrl = '' } = message.payload ?? {};
-    // Only act on updates for the tab this popup is associated with.
     if (tabId !== _currentTabId) return false;
     updateLiveBadge(media.length);
     if (_activePanel === 'live') renderLiveMedia(media, pageUrl);
@@ -265,7 +177,6 @@ function renderLiveMedia(mediaList, pageUrl) {
   }
 }
 
-/** Kind → Unicode icon character for the media placeholder. */
 function kindIcon(kind) {
   switch (kind) {
     case 'video':
@@ -299,24 +210,20 @@ function renderLiveItem(item) {
   const body = document.createElement('div');
   body.className = 'result-body';
 
-  // URL line
   const urlEl = document.createElement('div');
   urlEl.className   = 'result-url';
   urlEl.textContent = item.url || '';
   urlEl.title       = item.url || '';
   body.appendChild(urlEl);
 
-  // Tag row
   const tags = document.createElement('div');
   tags.className = 'result-tags';
 
-  // Kind badge
   const kindEl = document.createElement('span');
   kindEl.className   = `kind-badge kind-${item.kind ?? 'unknown'}`;
   kindEl.textContent = item.kind ?? 'unknown';
   tags.appendChild(kindEl);
 
-  // Verifiable badge
   if (item.verifiable) {
     const vEl = document.createElement('span');
     vEl.className   = 'verifiable-badge';
@@ -325,7 +232,6 @@ function renderLiveItem(item) {
     tags.appendChild(vEl);
   }
 
-  // Blob indicator
   if (item.url?.startsWith('blob:')) {
     const bEl = document.createElement('span');
     bEl.className   = 'blob-badge';
@@ -340,7 +246,7 @@ function renderLiveItem(item) {
 }
 
 // ---------------------------------------------------------------------------
-// Scan result rendering (unchanged from Sprint 3)
+// Scan result rendering
 // ---------------------------------------------------------------------------
 
 function renderSummary(summary) {
@@ -362,7 +268,7 @@ function renderSummary(summary) {
 }
 
 function renderItem(item) {
-  const li  = document.createElement('li');
+  const li = document.createElement('li');
   li.className = 'result-item';
 
   const img = document.createElement('img');
@@ -446,34 +352,6 @@ function escapeHtml(str) {
 }
 
 // ---------------------------------------------------------------------------
-// Service status banner
-// ---------------------------------------------------------------------------
-
-function setServiceBanner(state, text) {
-  serviceStatus.classList.remove(
-    'service-banner--unknown', 'service-banner--ok', 'service-banner--down'
-  );
-  serviceStatus.classList.add(`service-banner--${state}`);
-  serviceStatus.querySelector('.service-label').textContent = text;
-
-  btnScan.disabled = (state !== 'ok');
-  offlineGuide?.classList.toggle('hidden', state === 'ok');
-}
-
-async function refreshServiceStatus() {
-  try {
-    const response = await chrome.runtime.sendMessage(msg(MSG.TEST_SERVICE));
-    if (response?.ok) {
-      setServiceBanner('ok', `Local service: online (v${response.health?.version ?? '?'})`);
-    } else {
-      setServiceBanner('down', 'Local service: unreachable');
-    }
-  } catch {
-    setServiceBanner('down', 'Local service: unreachable');
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Initialisation
 // ---------------------------------------------------------------------------
 
@@ -484,25 +362,7 @@ async function refreshServiceStatus() {
     _currentTabId = tab?.id ?? null;
   } catch { /* non-fatal */ }
 
-  // 2. Fast path: read cached health state from session storage.
-  try {
-    if (chrome.storage.session) {
-      const session = await chrome.storage.session
-        .get(STORAGE_KEYS.HEALTH_STATE)
-        .catch(() => null);
-      const health = session?.[STORAGE_KEYS.HEALTH_STATE];
-      if (health) {
-        setServiceBanner(
-          health.ok ? 'ok' : 'down',
-          health.ok
-            ? `Local service: online (v${health.version ?? '?'})`
-            : 'Local service: unreachable'
-        );
-      }
-    }
-  } catch {}
-
-  // 3. Restore last scan result on the scan panel.
+  // 2. Restore last scan result on the scan panel.
   try {
     const response = await chrome.runtime.sendMessage(msg(MSG.GET_LAST_RESULT));
     if (response?.ok && response.summary) {
@@ -514,7 +374,7 @@ async function refreshServiceStatus() {
     emptyState.classList.remove('hidden');
   }
 
-  // 4. Pre-populate the live badge count (panel stays hidden until user clicks).
+  // 3. Pre-populate the live badge count (panel stays hidden until user clicks).
   try {
     const response = await chrome.runtime.sendMessage(msg(MSG.GET_TAB_MEDIA));
     if (response?.ok) {
@@ -523,6 +383,6 @@ async function refreshServiceStatus() {
     }
   } catch { /* non-fatal */ }
 
-  // 5. Live health check — updates banner and writes session storage.
-  refreshServiceStatus();
+  // 4. WASM verifier is always ready — enable scan.
+  btnScan.disabled = false;
 })();

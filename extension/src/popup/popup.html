@@ -15,32 +15,10 @@
         <div class="brand-sub">QUT × Databench</div>
       </div>
     </div>
-    <button id="btn-settings" class="icon-btn" title="Settings" aria-label="Open settings">
-      <span aria-hidden="true">⚙</span>
-    </button>
   </header>
 
   <!-- ===== Main view ===== -->
   <main id="view-main" class="view">
-
-    <!-- Service health banner (always visible) -->
-    <div id="service-status" class="service-banner service-banner--unknown">
-      <span class="dot" aria-hidden="true"></span>
-      <span class="service-label">Checking local service…</span>
-    </div>
-
-    <!-- Offline startup guide (shown when service is unreachable) -->
-    <div id="offline-guide" class="offline-guide hidden">
-      <p class="offline-title">Backend not running</p>
-      <p class="offline-body">
-        Open a terminal in the project root and run:
-      </p>
-      <pre class="offline-cmd">cd rust-service &amp;&amp; cargo run</pre>
-      <p class="offline-body">
-        Then open <strong>Settings</strong> and paste the printed
-        <code>SHARED_SECRET</code> if this is your first run.
-      </p>
-    </div>
 
     <!-- Tab bar -->
     <div class="tab-bar" role="tablist">
@@ -88,31 +66,6 @@
     </div>
 
   </main>
-
-  <!-- ===== Settings view ===== -->
-  <section id="view-settings" class="view hidden">
-    <h2 class="view-title">Settings</h2>
-
-    <label class="field">
-      <span class="field-label">Shared secret</span>
-      <input id="input-secret" type="password"
-             placeholder="Paste the value printed by the Rust service"
-             autocomplete="off" />
-      <span class="field-hint">
-        Printed in your terminal on first run of <code>cargo run</code>.
-        Stored locally in <code>chrome.storage.local</code>.
-      </span>
-    </label>
-
-    <div class="actions">
-      <button id="btn-test" class="secondary-btn">Test connection</button>
-      <button id="btn-save" class="primary-btn">Save</button>
-    </div>
-
-    <div id="settings-feedback" class="feedback hidden"></div>
-
-    <button id="btn-back" class="link-btn">← Back</button>
-  </section>
 
   <script type="module" src="popup.js"></script>
 </body>
