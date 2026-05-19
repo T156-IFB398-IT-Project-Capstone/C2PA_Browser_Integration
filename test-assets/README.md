@@ -27,3 +27,40 @@ Pack of sample media for end-to-end testing. Matches the test-case matrix from S
 ## Do not commit
 
 Keep the `private/` subfolder for anything with user data — `.gitignore` already excludes it.
+
+## Validated assets
+
+### test-signed.jpg
+- **Source:** c2pa.org public test files (`adobe-20220124-C.jpg`)
+- **Maps to:** Case `04` — Adobe-signed edited image
+- **Validated by:** Grace (n11907142) — byte-level scanner, 11 May 2026
+
+Byte-level scan confirmed the following markers present:
+
+| Marker | Position | Meaning |
+|---|---|---|
+| `c2pa` | byte 27116 | C2PA manifest signature |
+| `jumb` | byte 50340 | JUMBF container format |
+| `cred` | byte 61332 | Content credentials |
+
+**Extension test result:** `VERIFIED — Signed by Adobe Inc.`
+
+**How to reproduce:**
+```bash
+node test-assets/read-c2pa.mjs
+```
+
+Expected output:
+
+✅ Found: C2PA manifest at byte 27116
+✅ Found: JUMBF container at byte 50340
+✅ Found: Content credentials at byte 61332
+✅ THIS IMAGE CONTAINS C2PA DATA!
+Signer: Adobe Inc.
+
+**Browser extension test:**
+Serve locally and load in Chrome:
+```bash
+npx http-server test-assets/ -p 8080
+```
+Then open `http://localhost:8080` and run the extension — expect `VERIFIED` result.
