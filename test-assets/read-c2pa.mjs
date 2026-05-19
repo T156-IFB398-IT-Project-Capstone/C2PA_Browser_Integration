@@ -39,5 +39,6 @@ async function checkImage(filePath) {
   }
 }
 
-checkImage('./test-signed.jpg');
+const filePath = process.argv[2] || './test-assets/test-signed.jpg';
+checkImage(filePath);
 
