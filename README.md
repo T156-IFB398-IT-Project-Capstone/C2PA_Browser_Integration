@@ -31,7 +31,6 @@ Offscreen Document  WASM host — runs @contentauth/c2pa-web verification
 Popup UI            Renders Scan Results and Live Media panels
 ```
 
-All verification runs locally inside the extension sandbox via the c2pa-web WebAssembly module — no external service, no network calls beyond the original image fetch.
 
 ## Key documents
 
