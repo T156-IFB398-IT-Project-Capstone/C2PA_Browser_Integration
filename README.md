@@ -42,7 +42,7 @@ All verification runs locally inside the extension sandbox via the c2pa-web WebA
 - [`TOOLING.md`](TOOLING.md) — Development tools used (AI tooling declaration)
 - [`test-assets/README.md`](test-assets/README.md) — Test asset inventory and expected results
 
-## Team
+<!--## Team
 
 | Name | Role |
 | --- | --- |
@@ -50,6 +50,6 @@ All verification runs locally inside the extension sandbox via the c2pa-web WebA
 | [Team Member 2] | [Role] |
 | [Team Member 3] | [Role] |
 | [Team Member 4] | [Role] |
-| [Team Member 5] | [Role] |
+| [Team Member 5] | [Role] |-->
 
 **Industry partner:** Databench Pty Ltd — supervisor Steven
