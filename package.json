@@ -1,5 +1,16 @@
 {
+  "name": "c2pa-browser-extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build":       "node build.mjs",
+    "build:watch": "node build.mjs --watch"
+  },
   "dependencies": {
     "@contentauth/c2pa-web": "^0.7.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.12"
   }
 }
