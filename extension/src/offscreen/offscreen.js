@@ -78,7 +78,6 @@ async function verify({ bytes, mimeType }) {
 //   Invalid — signature broken or content tampered
 function stateToStatus(state) {
   switch (state) {
-    case 'Trusted': return VERIFY_STATUS.VERIFIED_TRUSTED;
     case 'Valid':   return VERIFY_STATUS.VERIFIED_UNTRUSTED;
     case 'Invalid': return VERIFY_STATUS.INVALID_OR_CHANGED;
     default:        return VERIFY_STATUS.INVALID_OR_CHANGED;
