@@ -383,7 +383,11 @@ body {
 }
 
 .status-verified_trusted   { background: var(--success-bg); color: var(--success); }
+.status-verified_tsa       { background: var(--success-bg); color: var(--success); }
 .status-verified_untrusted { background: var(--warning-bg); color: var(--warning); }
+.status-signing_expired    { background: var(--warning-bg); color: var(--warning); }
+.status-content_tampered   { background: var(--danger-bg);  color: var(--danger); }
+.status-broken_signature   { background: var(--danger-bg);  color: var(--danger); }
 .status-invalid_or_changed { background: var(--danger-bg);  color: var(--danger); }
 .status-no_credentials     { background: var(--neutral-bg); color: var(--neutral); }
 .status-unsupported_format { background: var(--neutral-bg); color: var(--neutral); }
