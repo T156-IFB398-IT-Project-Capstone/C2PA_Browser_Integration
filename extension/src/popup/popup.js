@@ -313,24 +313,42 @@ function renderItem(item) {
   body.appendChild(tags);
 
   if (item.manifest) {
-    const meta  = document.createElement('div');
-    meta.className = 'result-meta';
-    const parts = [];
-    if (item.manifest.creator)             parts.push(`by ${item.manifest.creator}`);
-    if (item.manifest.ai_disclosure)       parts.push('AI: yes');
-    if (item.manifest.signer?.common_name) parts.push(`signer: ${item.manifest.signer.common_name}`);
-    meta.textContent = parts.join(' · ');
-    body.appendChild(meta);
-  } else if (item.error?.message) {
-    const meta  = document.createElement('div');
-    meta.className   = 'result-meta';
-    meta.textContent = item.error.message;
-    meta.style.color = 'var(--danger)';
-    body.appendChild(meta);
+  const parts = [];
+
+  if (item.manifest.creator) {
+    parts.push(`by ${item.manifest.creator}`);
   }
 
-  li.appendChild(body);
-  return li;
+  if (item.manifest.ai_disclosure) {
+    parts.push('AI: yes');
+  }
+
+  if (item.manifest.signer?.common_name) {
+    parts.push(`signer: ${item.manifest.signer.common_name}`);
+  }
+
+  const validity = item.manifest.validity;
+
+  if (validity?.certificate_status === 'expired') {
+    parts.push('certificate: expired');
+  } else if (validity?.certificate_status === 'untrusted') {
+    parts.push('certificate: untrusted');
+  }
+
+  if (validity?.timestamp_status === 'untrusted') {
+    parts.push('timestamp: untrusted');
+  }
+
+  if (parts.length > 0) {
+    const meta = document.createElement('div');
+    meta.className = 'result-meta';
+    meta.textContent = parts.join(' · ');
+    body.appendChild(meta);
+  }
+}
+
+li.appendChild(body);
+return li;
 }
 
 function statusToLabel(status) {

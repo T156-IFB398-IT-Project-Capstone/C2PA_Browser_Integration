@@ -60,15 +60,17 @@ async function verify({ bytes, mimeType }) {
   }
 
   const store = await reader.manifestStore();
-  await reader.free();
 
-  return {
+  const result = {
     status:   stateToStatus(store.validation_state),
     manifest: extractManifest(store),
     error:    null,
   };
-}
 
+  await reader.free();
+
+  return result;
+}
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 // Map c2pa-web ValidationState → VERIFY_STATUS string.
@@ -78,6 +80,7 @@ async function verify({ bytes, mimeType }) {
 //   Invalid — signature broken or content tampered
 function stateToStatus(state) {
   switch (state) {
+    case 'Trusted': return VERIFY_STATUS.VERIFIED_TRUSTED;
     case 'Valid':   return VERIFY_STATUS.VERIFIED_UNTRUSTED;
     case 'Invalid': return VERIFY_STATUS.INVALID_OR_CHANGED;
     default:        return VERIFY_STATUS.INVALID_OR_CHANGED;
@@ -87,16 +90,28 @@ function stateToStatus(state) {
 function extractManifest(store) {
   const label = store.active_manifest;
   if (!label) return null;
+
   const m = store.manifests?.[label];
   if (!m) return null;
 
-  const creator       = extractCreator(m);
+  const creator = extractCreator(m);
   const ai_disclosure = hasAiAssertion(m.assertions);
-  const signer        = m.signature_info?.common_name
-    ? { common_name: m.signature_info.common_name }
+
+  const signer = m.signature_info?.common_name
+    ? {
+        common_name: m.signature_info.common_name,
+        issuer: m.signature_info.issuer ?? null,
+      }
     : null;
 
-  return { creator, ai_disclosure, signer };
+  const validity = extractValidity(store, m);
+
+  return {
+    creator,
+    ai_disclosure,
+    signer,
+    validity,
+  };
 }
 
 // Resolve the most meaningful creator string for the popup.
@@ -115,6 +130,109 @@ function extractCreator(manifest) {
   return manifest.claim_generator_info?.[0]?.name
       ?? manifest.claim_generator
       ?? null;
+}
+
+function extractValidity(store, manifest) {
+  const entries = [];
+
+  // validation_status is the SDK's flat validation list
+  if (Array.isArray(store.validation_status)) {
+    entries.push(...store.validation_status);
+  }
+
+  // validation_results contains success/failure/informational groups
+  const active = store.validation_results?.activeManifest;
+
+  if (active) {
+    if (Array.isArray(active.failure)) {
+      entries.push(...active.failure);
+    }
+
+    if (Array.isArray(active.informational)) {
+      entries.push(...active.informational);
+    }
+
+    if (Array.isArray(active.success)) {
+      entries.push(...active.success);
+    }
+  }
+
+  // Remove duplicates because the same validation issue may appear in
+  // validation_status and validation_results.
+  const unique = [];
+  const seen = new Set();
+
+  for (const entry of entries) {
+    if (!entry?.code) continue;
+
+    const key = `${entry.code}|${entry.url ?? ''}|${entry.explanation ?? ''}`;
+
+    if (!seen.has(key)) {
+      seen.add(key);
+      unique.push(entry);
+    }
+  }
+
+  const hasCode = code =>
+    unique.some(entry => entry.code === code);
+
+  const hasCodeContaining = value =>
+    unique.some(entry =>
+      typeof entry.code === 'string' &&
+      entry.code.toLowerCase().includes(value.toLowerCase())
+    );
+
+  const signingExpired =
+    hasCode('signingCredential.expired');
+
+  const signingUntrusted =
+    hasCode('signingCredential.untrusted');
+
+  const timestampUntrusted =
+    hasCode('timeStamp.untrusted') ||
+    hasCodeContaining('timestamp.untrusted');
+
+  const timestampPresent =
+    unique.some(entry =>
+      typeof entry.code === 'string' &&
+      entry.code.toLowerCase().includes('timestamp')
+    );
+
+  let certificateStatus = 'valid';
+
+  if (signingExpired) {
+    certificateStatus = 'expired';
+  } else if (signingUntrusted) {
+    certificateStatus = 'untrusted';
+  } else if (
+    store.validation_state !== 'Trusted' &&
+    store.validation_state !== 'Valid'
+  ) {
+    certificateStatus = 'unknown';
+  }
+
+  let timestampStatus = 'none';
+
+  if (timestampUntrusted) {
+    timestampStatus = 'untrusted';
+  } else if (timestampPresent) {
+    timestampStatus = 'present';
+  }
+
+  return {
+    certificate_status: certificateStatus,
+    timestamp_status: timestampStatus,
+    signing_time: manifest.signature_info?.time ?? null,
+    issues: unique
+      .filter(entry =>
+        entry.code?.startsWith('signingCredential.') ||
+        entry.code?.toLowerCase().includes('timestamp')
+      )
+      .map(entry => ({
+        code: entry.code,
+        explanation: entry.explanation ?? null,
+      })),
+  };
 }
 
 // Detect AI-generated content by inspecting c2pa.actions / c2pa.actions.v2
