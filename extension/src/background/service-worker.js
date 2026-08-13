@@ -20,9 +20,9 @@
 //   - GET_TAB_MEDIA returns the current tab's full media list on demand.
 //   - chrome.tabs.onRemoved / onUpdated keep the registry tidy.
 
-import { MSG, msg }         from '../shared/messages.js';
-import { ResultCache }      from '../shared/result-cache.js';
-import { ScanQueue }        from './scan-queue.js';
+import { MSG, msg } from '../shared/messages.js';
+import { ResultCache } from '../shared/result-cache.js';
+import { ScanQueue } from './scan-queue.js';
 import { TabMediaRegistry } from './tab-media-registry.js';
 import {
   STORAGE_KEYS,
@@ -40,8 +40,8 @@ import {
 // Module-level singletons (survive within one SW lifetime)
 // ---------------------------------------------------------------------------
 
-const scanQueue        = new ScanQueue({ maxAge: 60_000 });
-const resultCache      = new ResultCache();
+const scanQueue = new ScanQueue({ maxAge: 60_000 });
+const resultCache = new ResultCache();
 const tabMediaRegistry = new TabMediaRegistry();
 
 // ---------------------------------------------------------------------------
@@ -69,8 +69,8 @@ async function ensureOffscreen() {
   if (await chrome.offscreen.hasDocument()) return;
   if (!_offscreenCreating) {
     _offscreenCreating = chrome.offscreen.createDocument({
-      url:           OFFSCREEN_URL,
-      reasons:       [chrome.offscreen.Reason[OFFSCREEN_REASON]],
+      url: OFFSCREEN_URL,
+      reasons: [chrome.offscreen.Reason[OFFSCREEN_REASON]],
       justification: 'C2PA WASM verification requires Web Worker support unavailable in service workers.',
     }).finally(() => { _offscreenCreating = null; });
   }
@@ -87,10 +87,10 @@ async function fetchAsBytes(url) {
 
   let mediaType = response.headers.get('Content-Type')?.split(';')[0]?.trim() ?? '';
   if (!SUPPORTED_MIME_TYPES.includes(mediaType)) {
-    if      (/\.jpe?g(\?|$)/i.test(url)) mediaType = 'image/jpeg';
-    else if (/\.png(\?|$)/i.test(url))   mediaType = 'image/png';
-    else if (/\.gif(\?|$)/i.test(url))   mediaType = 'image/gif';
-    else if (/\.webp(\?|$)/i.test(url))  mediaType = 'image/webp';
+    if (/\.jpe?g(\?|$)/i.test(url)) mediaType = 'image/jpeg';
+    else if (/\.png(\?|$)/i.test(url)) mediaType = 'image/png';
+    else if (/\.gif(\?|$)/i.test(url)) mediaType = 'image/gif';
+    else if (/\.webp(\?|$)/i.test(url)) mediaType = 'image/webp';
   }
 
   const buf = await response.arrayBuffer();
@@ -104,9 +104,11 @@ async function fetchAsBytes(url) {
 // Verification pipeline (cache → offscreen WASM → cache write)
 // ---------------------------------------------------------------------------
 
-async function verifyOne(url) {
-  const cached = resultCache.get(url);
-  if (cached) return { sourceUrl: url, ...cached, _cached: true };
+async function verifyOne(url, bypassCache = false) {
+  if (!bypassCache) {
+    const cached = resultCache.get(url);
+    if (cached) return { sourceUrl: url, ...cached, _cached: true };
+  }
 
   scanQueue.markInFlight(url);
 
@@ -131,9 +133,9 @@ async function verifyOne(url) {
 
     const record = {
       sourceUrl: url,
-      status:    response.status,
-      manifest:  response.manifest ?? null,
-      error:     response.error   ?? null,
+      status: response.status,
+      manifest: response.manifest ?? null,
+      error: response.error ?? null,
     };
 
     resultCache.set(url, { status: record.status, manifest: record.manifest, error: record.error });
@@ -143,9 +145,9 @@ async function verifyOne(url) {
   } catch (err) {
     const record = {
       sourceUrl: url,
-      status:    'error',
-      manifest:  null,
-      error:     { message: err.message ?? String(err) },
+      status: 'error',
+      manifest: null,
+      error: { message: err.message ?? String(err) },
     };
     scanQueue.markFailed(url, err);
     return record;
@@ -159,11 +161,11 @@ async function verifyOne(url) {
 async function runConcurrent(tasks, limit) {
   if (tasks.length === 0) return [];
   const results = new Array(tasks.length);
-  let   nextIdx = 0;
+  let nextIdx = 0;
 
   async function worker() {
     while (nextIdx < tasks.length) {
-      const idx    = nextIdx++;
+      const idx = nextIdx++;
       results[idx] = await tasks[idx]();
     }
   }
@@ -193,24 +195,24 @@ async function scanActiveTab() {
   if (!response?.ok) throw new Error('Content script did not respond.');
 
   const mediaItems = response.media ?? [];
-  const total      = mediaItems.length;
-  let   done       = 0;
+  const total = mediaItems.length;
+  let done = 0;
 
   const tasks = mediaItems.map(item => async () => {
-    const res = await verifyOne(item.src);
+    const res = await verifyOne(item.src, true); // bypass cache on manual page scan
     done++;
     chrome.runtime.sendMessage(
       msg(MSG.SCAN_PROGRESS, { done, total })
-    ).catch(() => {});
+    ).catch(() => { });
     return { ...item, ...res, sourceUrl: res.sourceUrl ?? item.src };
   });
 
   const results = await runConcurrent(tasks, SCAN_CONCURRENCY);
 
   const summary = {
-    pageUrl:   response.pageUrl,
+    pageUrl: response.pageUrl,
     scannedAt: Date.now(),
-    count:     results.length,
+    count: results.length,
     results,
   };
 
@@ -223,14 +225,14 @@ async function scanActiveTab() {
 // ---------------------------------------------------------------------------
 
 function broadcastMediaUpdate(tabId) {
-  const media   = tabMediaRegistry.getAll(tabId);
+  const media = tabMediaRegistry.getAll(tabId);
   const pageUrl = tabMediaRegistry.getPageUrl(tabId);
   chrome.runtime.sendMessage(msg(MSG.MEDIA_UPDATED, {
     tabId,
     media,
     pageUrl,
     count: media.length,
-  })).catch(() => {});
+  })).catch(() => { });
 }
 
 // ---------------------------------------------------------------------------
@@ -262,11 +264,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
           if (!tab?.id) { sendResponse({ ok: false, error: 'No active tab.' }); return; }
           sendResponse({
-            ok:      true,
-            tabId:   tab.id,
-            media:   tabMediaRegistry.getAll(tab.id),
+            ok: true,
+            tabId: tab.id,
+            media: tabMediaRegistry.getAll(tab.id),
             pageUrl: tabMediaRegistry.getPageUrl(tab.id),
-            count:   tabMediaRegistry.getCount(tab.id),
+            count: tabMediaRegistry.getCount(tab.id),
           });
           return;
         }
@@ -323,7 +325,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
     tabMediaRegistry.clear(tabId);
     chrome.runtime.sendMessage(msg(MSG.MEDIA_UPDATED, {
       tabId, media: [], pageUrl: '', count: 0,
-    })).catch(() => {});
+    })).catch(() => { });
   }
 });
 

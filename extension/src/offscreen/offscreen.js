@@ -11,6 +11,11 @@
 import { createC2pa }               from '@contentauth/c2pa-web/inline';
 import { MSG }                       from '../shared/messages.js';
 import { VERIFY_STATUS }             from '../shared/constants.js';
+import c2paTrustPem                  from '../../../trusted-certs/C2PA-TRUST-LIST.pem';
+import tsaTrustPem                   from '../../../trusted-certs/C2PA-TSA-TRUST-LIST.pem';
+
+// Combined PEM trust anchors for C2PA CAs and TSAs.
+const COMBINED_TRUST_PEM = [c2paTrustPem, tsaTrustPem].filter(Boolean).join('\n\n');
 
 // ── SDK singleton ─────────────────────────────────────────────────────────────
 // Defer initialisation to the first verification request so the offscreen
@@ -18,30 +23,42 @@ import { VERIFY_STATUS }             from '../shared/constants.js';
 let _sdkPromise = null;
 
 function getSdk() {
-  if (!_sdkPromise) _sdkPromise = createC2pa();
+  if (!_sdkPromise) {
+    _sdkPromise = createC2pa({
+      settings: {
+        trust: {
+          trustAnchors: COMBINED_TRUST_PEM,
+          userAnchors: COMBINED_TRUST_PEM,
+        },
+      },
+    }).catch(err => {
+      // Fallback without custom settings if settings configuration fails
+      console.warn('[c2pa-offscreen] Failed init with trust settings, falling back to default:', err);
+      return createC2pa();
+    });
+  }
   return _sdkPromise;
 }
 
 // ── Message listener ──────────────────────────────────────────────────────────
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message?.type !== MSG.VERIFY_REQUEST) return false;
+if (typeof chrome !== 'undefined' && chrome?.runtime?.onMessage) {
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (message?.type !== MSG.VERIFY_REQUEST) return false;
 
-  verify(message.payload)
-    .then(sendResponse)
-    .catch(err => {
-      const msgText = err?.message ?? String(err);
-      // c2pa-web throws UnsupportedType for assets it cannot parse (wrong
-      // container, no C2PA box in some format variants). Surface as
-      // NO_CREDENTIALS so the popup shows a sensible state rather than "Error".
-      const status = /UnsupportedType/i.test(msgText)
-        ? VERIFY_STATUS.NO_CREDENTIALS
-        : 'error';
-      sendResponse({ status, manifest: null, error: status === 'error' ? { message: msgText } : null });
-    });
+    verify(message.payload)
+      .then(sendResponse)
+      .catch(err => {
+        const msgText = err?.message ?? String(err);
+        const status = /UnsupportedType/i.test(msgText)
+          ? VERIFY_STATUS.NO_CREDENTIALS
+          : 'error';
+        sendResponse({ status, manifest: null, error: status === 'error' ? { message: msgText } : null });
+      });
 
-  return true; // keep the message channel open for the async sendResponse
-});
+    return true; // keep the message channel open for the async sendResponse
+  });
+}
 
 // ── Core verification ─────────────────────────────────────────────────────────
 
@@ -63,26 +80,90 @@ async function verify({ bytes, mimeType }) {
   await reader.free();
 
   return {
-    status:   stateToStatus(store.validation_state),
+    status:   determineStatus(store),
     manifest: extractManifest(store),
     error:    null,
   };
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Helpers & Status Determination ───────────────────────────────────────────
 
-// Map c2pa-web ValidationState → VERIFY_STATUS string.
-// c2pa-web states: "Trusted" | "Valid" | "Invalid"
-//   Trusted — signature valid AND signer is in the trust list
-//   Valid   — signature valid but signer not in trust list (self-signed etc.)
-//   Invalid — signature broken or content tampered
-function stateToStatus(state) {
-  switch (state) {
-    case 'Trusted': return VERIFY_STATUS.VERIFIED_TRUSTED;
-    case 'Valid':   return VERIFY_STATUS.VERIFIED_UNTRUSTED;
-    case 'Invalid': return VERIFY_STATUS.INVALID_OR_CHANGED;
-    default:        return VERIFY_STATUS.INVALID_OR_CHANGED;
+/**
+ * Determine exact verification status across the 7 scenarios:
+ * 1. Verified (Trusted)   -> verified_trusted
+ * 2. Verified via TSA    -> verified_tsa
+ * 3. Untrusted Signer    -> verified_untrusted
+ * 4. Expired (No TSA)     -> signing_expired
+ * 5. Content Tampered     -> content_tampered
+ * 6. Broken Signature     -> broken_signature
+ * 7. No Credentials       -> no_credentials
+ */
+export function determineStatus(store) {
+  if (!store || !store.active_manifest) {
+    return VERIFY_STATUS.NO_CREDENTIALS;
   }
+
+  const validationState = store.validation_state; // "Trusted" | "Valid" | "Invalid" | null
+  const statusItems = Array.isArray(store.validation_status) ? store.validation_status : [];
+
+  const activeRes = store.validation_results?.activeManifest || {};
+  const failures = Array.isArray(activeRes.failure) ? activeRes.failure : [];
+  const successes = Array.isArray(activeRes.success) ? activeRes.success : [];
+
+  const allFailures = [...statusItems, ...failures];
+  const allSuccesses = [...successes];
+
+  const hasFailureCode = (pattern) => allFailures.some(f => 
+    (f.code && pattern.test(f.code)) || (f.explanation && pattern.test(f.explanation))
+  );
+
+  const hasSuccessCode = (pattern) => allSuccesses.some(s => 
+    (s.code && pattern.test(s.code)) || (s.explanation && pattern.test(s.explanation))
+  );
+
+  // 1. Content Tampered (pixel / data hash mismatch)
+  const isTampered = hasFailureCode(/assertion\.(dataHash|hashedURI)\.mismatch|manifest\.check_sum|data hash invalid/i);
+  if (validationState === 'Invalid' && isTampered) {
+    return VERIFY_STATUS.CONTENT_TAMPERED;
+  }
+
+  // 2. Broken Signature (claim signature corrupt / mismatch)
+  const isBrokenSig = hasFailureCode(/claimSignature\.(mismatch|corrupt|invalid)|claim\.signature/i);
+  if (validationState === 'Invalid' && isBrokenSig) {
+    return VERIFY_STATUS.BROKEN_SIGNATURE;
+  }
+
+  // Fallback for Invalid
+  if (validationState === 'Invalid') {
+    return VERIFY_STATUS.INVALID_OR_CHANGED;
+  }
+
+  // 3. TSA Timestamp Validity Window Checking
+  const hasTsaValid = hasSuccessCode(/timeStamp\.(validated|trusted)/i) || 
+                      hasSuccessCode(/timestamp message digest matched/i);
+  const isCertExpired = hasFailureCode(/signingCredential\.(expired|outsideValidity)/i);
+
+  // If cert is expired and NO valid TSA timestamp was present:
+  if (isCertExpired && !hasTsaValid) {
+    return VERIFY_STATUS.SIGNING_EXPIRED;
+  }
+
+  // If valid TSA timestamp is present (even if cert is untrusted/expired or inside validity window):
+  if (hasTsaValid && (validationState === 'Valid' || isCertExpired)) {
+    return VERIFY_STATUS.VERIFIED_TSA;
+  }
+
+  // 4. Trusted CA
+  if (validationState === 'Trusted') {
+    return VERIFY_STATUS.VERIFIED_TRUSTED;
+  }
+
+  // 5. Valid (Untrusted Signer)
+  if (validationState === 'Valid') {
+    return VERIFY_STATUS.VERIFIED_UNTRUSTED;
+  }
+
+  return VERIFY_STATUS.INVALID_OR_CHANGED;
 }
 
 function extractManifest(store) {
@@ -94,18 +175,34 @@ function extractManifest(store) {
   const creator       = extractCreator(m);
   const ai_disclosure = hasAiAssertion(m.assertions);
   const signer        = m.signature_info?.common_name
-    ? { common_name: m.signature_info.common_name }
+    ? {
+        common_name: m.signature_info.common_name,
+        issuer: m.signature_info.issuer ?? null,
+        alg: m.signature_info.alg ?? null,
+        time: m.signature_info.time ?? null,
+      }
     : null;
 
-  return { creator, ai_disclosure, signer };
+  const activeRes = store.validation_results?.activeManifest || {};
+  const successes = Array.isArray(activeRes.success) ? activeRes.success : [];
+  const failures  = Array.isArray(activeRes.failure) ? activeRes.failure : [];
+
+  const hasTsaValid = successes.some(s => /timeStamp\.(validated|trusted)/i.test(s.code ?? '') || /timestamp message digest matched/i.test(s.explanation ?? ''));
+  const tsa_info = {
+    validated: hasTsaValid,
+    time: m.signature_info?.time ?? null,
+  };
+
+  const isCertExpired = failures.some(f => /signingCredential\.(expired|outsideValidity)/i.test(f.code ?? '') || /outside validity/i.test(f.explanation ?? ''));
+  const validity_window = {
+    inside_validity: successes.some(s => /claimSignature\.insideValidity/i.test(s.code ?? '')),
+    expired: isCertExpired,
+  };
+
+  return { creator, ai_disclosure, signer, tsa_info, validity_window };
 }
 
-// Resolve the most meaningful creator string for the popup.
-// Priority:
-//   1. Human author from stds.schema-org.CreativeWork data.author[0].name
-//   2. Tool name from claim_generator_info[0].name  (e.g. "Adobe Photoshop")
-//   3. Raw claim_generator string (user-agent format)
-// AI-generated content typically has no human author entry, so falls to (2).
+// Resolve creator string: author name > tool name > raw claim generator
 function extractCreator(manifest) {
   const cw = Array.isArray(manifest.assertions)
     ? manifest.assertions.find(a => a?.label === 'stds.schema-org.CreativeWork')
@@ -118,10 +215,7 @@ function extractCreator(manifest) {
       ?? null;
 }
 
-// Detect AI-generated content by inspecting c2pa.actions / c2pa.actions.v2
-// assertion data for IPTC digitalSourceType values.
-// Real-world AI manifests (ChatGPT, Firefly, Sora) embed this in action objects,
-// not in the assertion label — label-pattern matching misses them entirely.
+// Detect AI-generated content in c2pa.actions / c2pa.actions.v2
 function hasAiAssertion(assertions) {
   if (!Array.isArray(assertions)) return false;
 

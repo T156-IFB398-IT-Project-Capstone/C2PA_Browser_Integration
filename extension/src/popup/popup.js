@@ -319,6 +319,7 @@ function renderItem(item) {
     if (item.manifest.creator)             parts.push(`by ${item.manifest.creator}`);
     if (item.manifest.ai_disclosure)       parts.push('AI: yes');
     if (item.manifest.signer?.common_name) parts.push(`signer: ${item.manifest.signer.common_name}`);
+    if (item.manifest.tsa_info?.validated) parts.push('TSA timestamped');
     meta.textContent = parts.join(' · ');
     body.appendChild(meta);
   } else if (item.error?.message) {
@@ -336,7 +337,11 @@ function renderItem(item) {
 function statusToLabel(status) {
   switch (status) {
     case VERIFY_STATUS.VERIFIED_TRUSTED:    return 'Verified — trusted';
+    case VERIFY_STATUS.VERIFIED_TSA:        return 'Verified via TSA';
     case VERIFY_STATUS.VERIFIED_UNTRUSTED:  return 'Signed — provider not in trust list';
+    case VERIFY_STATUS.SIGNING_EXPIRED:     return 'Expired (No TSA)';
+    case VERIFY_STATUS.CONTENT_TAMPERED:   return 'Content tampered';
+    case VERIFY_STATUS.BROKEN_SIGNATURE:    return 'Broken signature';
     case VERIFY_STATUS.INVALID_OR_CHANGED:  return 'Invalid or changed';
     case VERIFY_STATUS.NO_CREDENTIALS:      return 'No Content Credentials';
     case VERIFY_STATUS.UNSUPPORTED_FORMAT:  return 'Format not supported';

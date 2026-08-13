@@ -17,7 +17,7 @@
 //   node build.mjs --watch   — incremental rebuild on file change
 
 import * as esbuild from 'esbuild';
-import { mkdirSync }  from 'node:fs';
+import { mkdirSync } from 'node:fs';
 
 const watch = process.argv.includes('--watch');
 
@@ -25,19 +25,20 @@ const watch = process.argv.includes('--watch');
 mkdirSync('extension/dist', { recursive: true });
 
 const sharedConfig = {
-  bundle:    true,
-  format:    'esm',       // MV3 service workers + offscreen pages support ESM
-  target:    ['chrome120'],
+  bundle: true,
+  format: 'esm',       // MV3 service workers + offscreen pages support ESM
+  target: ['chrome120'],
   sourcemap: 'linked',    // <file>.js.map alongside output — keeps output readable
-  minify:    false,       // stay readable during development
-  platform:  'browser',
+  minify: false,       // stay readable during development
+  platform: 'browser',
+  loader: { '.pem': 'text' },
 };
 
 // ── Entry 1: Service Worker ───────────────────────────────────────────────────
 const swCtx = await esbuild.context({
   ...sharedConfig,
   entryPoints: ['extension/src/background/service-worker.js'],
-  outfile:     'extension/dist/service-worker.js',
+  outfile: 'extension/dist/service-worker.js',
 });
 
 // ── Entry 2: Offscreen Document ───────────────────────────────────────────────
@@ -46,9 +47,9 @@ const swCtx = await esbuild.context({
 const offscreenCtx = await esbuild.context({
   ...sharedConfig,
   entryPoints: ['extension/src/offscreen/offscreen.js'],
-  outfile:     'extension/dist/offscreen.js',
+  outfile: 'extension/dist/offscreen.js',
   define: {
-    __dirname:  '""',
+    __dirname: '""',
     __filename: '""',
   },
 });
