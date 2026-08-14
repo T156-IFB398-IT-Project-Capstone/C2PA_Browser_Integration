@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C2PA Verification Test Bench</title>
+    <meta name="description" content="Sleek, interactive testing environment for verifying C2PA manifests, Content Credentials, signature integrity, TSA timestamps, and video/image media metadata.">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="container">
+    <!-- Header -->
+    <header>
+        <div class="header-top">
+            <div class="brand-section">
+                <div class="brand-icon">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                        <path d="M9 12l2 2 4-4"></path>
+                    </svg>
+                </div>
+                <div class="brand-text">
+                    <h1>C2PA Verification Test Bench</h1>
+                    <p>Testing and QA Environment for Content Credentials &amp; Provenance Integrity</p>
+                </div>
+            </div>
+        </div>
+
+    </header>
+
+    <!-- Upload & Sandbox Zone -->
+    <div class="upload-sandbox" id="dropzone">
+        <input type="file" id="file-upload-input" accept="image/*,video/mp4,video/*" multiple>
+        <div class="upload-content">
+            <div class="upload-icon">
+                <svg viewBox="0 0 24 24">
+                    <path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                </svg>
+            </div>
+            <div class="upload-title">Drop your MP4 video or Image file here to test C2PA credentials</div>
+            <div class="upload-subtitle">Supports .mp4, .jpg, .png, .jpeg files with embedded C2PA manifests</div>
+            <span class="upload-btn">Browse Files</span>
+        </div>
+    </div>
+
+
+    <!-- Media Test Bench Grid -->
+    <main>
+        <div class="grid" id="media-grid">
+            <!-- Cards rendered dynamically by app.js -->
+        </div>
+    </main>
+</div>
+
+<!-- Modal Inspection Overlay -->
+<div class="modal-overlay" id="inspect-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modal-title">Manifest Inspection</h3>
+            <button class="close-modal-btn" id="close-modal" aria-label="Close modal">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 6L6 18M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="modal-media-preview" id="modal-media-preview"></div>
+            
+            <div class="modal-details-grid" id="modal-details-grid"></div>
+
+            <div>
+                <div class="detail-label" style="margin-bottom: 8px;">Raw Manifest JSON / Log Output</div>
+                <div class="json-box" id="modal-json-box">// Loading manifest data...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

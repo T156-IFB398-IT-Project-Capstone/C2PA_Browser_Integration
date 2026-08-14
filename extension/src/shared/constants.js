@@ -61,7 +61,11 @@ export const STORAGE_KEYS = Object.freeze({
 
 export const VERIFY_STATUS = Object.freeze({
   VERIFIED_TRUSTED:   'verified_trusted',
+  VERIFIED_TSA:       'verified_tsa',
   VERIFIED_UNTRUSTED: 'verified_untrusted',
+  SIGNING_EXPIRED:    'signing_expired',
+  CONTENT_TAMPERED:   'content_tampered',
+  BROKEN_SIGNATURE:   'broken_signature',
   INVALID_OR_CHANGED: 'invalid_or_changed',
   NO_CREDENTIALS:     'no_credentials',
   UNSUPPORTED_FORMAT: 'unsupported_format',
