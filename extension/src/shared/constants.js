@@ -33,12 +33,13 @@ export const SUPPORTED_MIME_TYPES = Object.freeze([
   'image/png',
   'image/gif',
   'image/webp',
+  'video/mp4',
 ]);
 
 // Extensions used by the content script (no ES-module imports there).
 // Keep in sync with SUPPORTED_MIME_TYPES above.
 export const SUPPORTED_EXTENSIONS = Object.freeze([
-  '.jpg', '.jpeg', '.png', '.gif', '.webp',
+  '.jpg', '.jpeg', '.png', '.gif', '.webp', '.mp4',
 ]);
 
 export const MEDIA_KIND = Object.freeze({

@@ -1,0 +1,89 @@
+[
+  {
+    "context": "perf",
+    "ts": "2026-08-03T07:19:33.271Z",
+    "event": "perf-start",
+    "heap": {
+      "usedJSHeapSize": 21527257,
+      "totalJSHeapSize": 22546213,
+      "jsHeapSizeLimit": 4395630592
+    }
+  },
+  {
+    "context": "perf",
+    "ts": "2026-08-03T07:19:33.348Z",
+    "event": "sdk-init",
+    "ms": 71.1,
+    "heap": {
+      "usedJSHeapSize": 37265592,
+      "totalJSHeapSize": 38490764,
+      "jsHeapSizeLimit": 4395630592
+    }
+  },
+  {
+    "context": "perf",
+    "ts": "2026-08-03T07:19:33.379Z",
+    "event": "fetch-v1",
+    "ms": 28.3,
+    "bytes": 5278370,
+    "heap": {
+      "usedJSHeapSize": 37265592,
+      "totalJSHeapSize": 38490764,
+      "jsHeapSizeLimit": 4395630592
+    }
+  },
+  {
+    "context": "perf",
+    "ts": "2026-08-03T07:19:33.632Z",
+    "event": "fromBlob",
+    "ms": 250.6,
+    "heap": {
+      "usedJSHeapSize": 37279244,
+      "totalJSHeapSize": 38490804,
+      "jsHeapSizeLimit": 4395630592
+    }
+  },
+  {
+    "context": "perf",
+    "ts": "2026-08-03T07:19:33.637Z",
+    "event": "manifestStore",
+    "ms": 1.8,
+    "validation_state": "Invalid",
+    "heap": {
+      "usedJSHeapSize": 37279244,
+      "totalJSHeapSize": 38490804,
+      "jsHeapSizeLimit": 4395630592
+    }
+  },
+  {
+    "context": "perf",
+    "ts": "2026-08-03T07:19:33.640Z",
+    "event": "free",
+    "ms": 0.7,
+    "heap": {
+      "usedJSHeapSize": 37279244,
+      "totalJSHeapSize": 38490804,
+      "jsHeapSizeLimit": 4395630592
+    }
+  },
+  {
+    "context": "perf",
+    "ts": "2026-08-03T07:19:33.645Z",
+    "event": "summary",
+    "assetBytes": 5278370,
+    "sdkInitMs": 71.1,
+    "fetchMs": 28.3,
+    "verifyOnlyMs": 255.6,
+    "coldStartTotalMs": 360.7,
+    "finalHeap": {
+      "usedJSHeapSize": 37279244,
+      "totalJSHeapSize": 38490804,
+      "jsHeapSizeLimit": 4395630592
+    }
+  },
+  {
+    "context": "perf",
+    "ts": "2026-08-03T07:19:33.648Z",
+    "done": true
+  }
+]

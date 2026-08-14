@@ -21,6 +21,11 @@ node_modules/
 # ============================================================
 extension/dist/
 
+# SPIKE-001 evidence harnesses — bundled output only (embeds the WASM binary
+# as base64, ~10 MB each). Source is committed; regenerate with bundle.mjs.
+extension/_spike-harness/*.bundle.js
+docs/phase2/spike-001-evidence/*.bundle.js
+
 # ============================================================
 # Test assets with real user data
 # ============================================================

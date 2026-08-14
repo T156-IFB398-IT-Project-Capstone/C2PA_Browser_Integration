@@ -1,0 +1,17 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>SPIKE-001 plain-page harness</title></head>
+<body>
+<pre id="log">running...</pre>
+<script>
+  fetch('/report', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ context: 'plain-page', outcome: 'page-loaded', ts: new Date().toISOString() }) });
+  window.addEventListener('error', (e) => {
+    fetch('/report', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ context: 'plain-page', outcome: 'early-window-error', error: { message: e.message, filename: e.filename, lineno: e.lineno, colno: e.colno }, ts: new Date().toISOString() }) });
+  });
+  window.addEventListener('unhandledrejection', (e) => {
+    fetch('/report', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ context: 'plain-page', outcome: 'early-unhandledrejection', error: { message: String(e.reason && e.reason.message || e.reason) }, ts: new Date().toISOString() }) });
+  });
+</script>
+<script type="module" src="/plain-harness.bundle.js"></script>
+</body>
+</html>

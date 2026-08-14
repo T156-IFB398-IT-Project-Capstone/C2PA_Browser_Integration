@@ -17,7 +17,9 @@
   'use strict';
 
   // --- inlined constants (no ES-module imports in classic content scripts) ---
-  const SUPPORTED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+  // Keep in sync with SUPPORTED_EXTENSIONS / SUPPORTED_MIME_TYPES in
+  // ../shared/constants.js — this file can't import it (classic content script).
+  const SUPPORTED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.mp4'];
   const MSG_MEDIA_DETECTED   = 'c2pa/media_detected';
   const MSG_SCAN_ACTIVE_TAB  = 'c2pa/scan_active_tab';
   const MIN_REANNOUNCE_MS    = 2_000;  // rate-limit for realtime tracking messages
@@ -26,7 +28,7 @@
   // URL helpers
   // -------------------------------------------------------------------------
 
-  /** True only for http/https image URLs with a verifiable extension. */
+  /** True only for http/https URLs with a verifiable (image or video) extension. */
   function isVerifiableUrl(url) {
     if (!url) return false;
     try {
@@ -60,8 +62,9 @@
   }
 
   // -------------------------------------------------------------------------
-  // discoverMedia — Sprint 1/2/3 baseline (verifiable images only)
-  // Used exclusively by SCAN_ACTIVE_TAB so verification behavior is unchanged.
+  // discoverMedia — verifiable media only (images since Sprint 1/2/3; video
+  // added once the scan pipeline could handle MP4 — see SPIKE-001).
+  // Used exclusively by SCAN_ACTIVE_TAB.
   // -------------------------------------------------------------------------
 
   function discoverMedia() {
@@ -90,6 +93,22 @@
 
     for (const el of document.querySelectorAll('video[poster]')) {
       add(el.poster, 'video-poster', {});
+    }
+
+    // video src / currentSrc — filtered by isVerifiableUrl(), so blob:/MSE
+    // sources (no fetchable URL) are excluded the same way data: URLs are
+    // for images. Mirrors discoverAllMedia()'s video handling below.
+    for (const el of document.querySelectorAll('video')) {
+      add(el.currentSrc || el.src, 'video', {
+        width:  el.videoWidth  || el.width  || 0,
+        height: el.videoHeight || el.height || 0,
+      });
+    }
+
+    // <video><source src> — .src (not getAttribute) so a relative path
+    // resolves to absolute the same way img.src/video.src already do above.
+    for (const el of document.querySelectorAll('video > source')) {
+      add(el.src, 'video', {});
     }
 
     return found;
