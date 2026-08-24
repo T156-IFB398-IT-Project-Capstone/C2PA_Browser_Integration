@@ -3,8 +3,9 @@
 // Popup UI — scan trigger, result rendering, live media panel.
 // Verification runs via WASM offscreen document — no service health check needed.
 
-import { MSG, msg }      from '../shared/messages.js';
-import { VERIFY_STATUS } from '../shared/constants.js';
+import { MSG, msg }              from '../shared/messages.js';
+import { VERIFY_STATUS }         from '../shared/constants.js';
+import { BADGE_FILES, pickBadgeState } from '../shared/badge-map.js';
 
 // ---------------------------------------------------------------------------
 // DOM refs
@@ -187,40 +188,14 @@ function kindIcon(kind) {
 }
 
 // ---------------------------------------------------------------------------
-// Shield badge — VERIFY_STATUS + manifest -> one of 4 states, or none
+// Shield badge — mapping logic lives in ../shared/badge-map.js (shared with
+// the C2PA test bench so the two can't drift apart). Popup-specific: prefix
+// each filename with this directory's actual relative path to the assets.
 // ---------------------------------------------------------------------------
-//
-// Only statuses where the hash binding and signature are cryptographically
-// intact are badge-eligible. CONTENT_TAMPERED, BROKEN_SIGNATURE,
-// INVALID_OR_CHANGED, NO_CREDENTIALS, UNSUPPORTED_FORMAT, and 'error' get no
-// badge — the existing text status pill (result-status) already covers them
-// honestly. Forcing one of these four "authentic" states onto a failed/absent
-// case would be exactly the traffic-light overclaim CLAUDE.md's Hard
-// Constraint #4 rules out. Applies identically to image and video results —
-// the distinction is media-kind-independent.
-const BADGE_ELIGIBLE_STATUSES = new Set([
-  VERIFY_STATUS.VERIFIED_TRUSTED,
-  VERIFY_STATUS.VERIFIED_TSA,
-  VERIFY_STATUS.VERIFIED_UNTRUSTED,
-  VERIFY_STATUS.SIGNING_EXPIRED,
-]);
 
-const BADGE_ASSETS = {
-  authentic:        { src: 'badges/shield-authentic.svg',   alt: 'Authentic' },
-  authentic_edited: { src: 'badges/shield-edited-2.svg',    alt: 'Authentic — Edited' },
-  ai_edited:        { src: 'badges/shield-ai-edited.svg',   alt: 'AI-Edited' },
-  ai_generated:     { src: 'badges/shield-ai-generated.svg', alt: 'AI-Generated' },
-};
-
-function pickBadgeState(item) {
-  if (!BADGE_ELIGIBLE_STATUSES.has(item.status)) return null;
-  const m = item.manifest;
-  if (!m) return null;
-  if (m.ai_source_type === 'generated') return 'ai_generated';
-  if (m.ai_source_type === 'composite') return 'ai_edited';
-  if (m.has_non_ai_edit) return 'authentic_edited';
-  return 'authentic';
-}
+const BADGE_ASSETS = Object.fromEntries(
+  Object.entries(BADGE_FILES).map(([state, { file, alt }]) => [state, { src: `badges/${file}`, alt }])
+);
 
 function renderShieldBadge(item) {
   const state = pickBadgeState(item);

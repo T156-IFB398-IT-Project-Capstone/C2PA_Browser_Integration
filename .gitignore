@@ -26,6 +26,12 @@ extension/dist/
 extension/_spike-harness/*.bundle.js
 docs/phase2/spike-001-evidence/*.bundle.js
 
+# C2PA test bench — bundled output only (embeds the WASM binary as base64,
+# ~11 MB). Source (verify-entry.mjs) is committed; regenerate with
+# c2pa-test-bench/build.mjs.
+c2pa-test-bench/verify-bundle.js
+c2pa-test-bench/verify-bundle.js.map
+
 # ============================================================
 # Test assets with real user data
 # ============================================================

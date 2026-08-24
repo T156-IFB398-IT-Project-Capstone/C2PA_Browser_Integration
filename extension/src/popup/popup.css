@@ -82,6 +82,16 @@ body {
 }
 .icon-btn:hover { background: var(--bg); border-color: var(--border); }
 
+/* icon-btn as a link (test-bench button) needs its own display/centering —
+   <a> is inline by default, unlike <button>, so width/height/centering
+   don't apply without this. */
+a.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
 /* ---------- main view ---------- */
 .view { padding: 12px 14px 16px; }
 

@@ -244,6 +244,20 @@ header {
   transform: scale(1.03);
 }
 
+/* Shield verification badge — same asset set and selection logic as the
+   extension popup (shared/badge-map.js), no badge for results that
+   aren't cryptographically intact. See app.js renderGrid(). */
+.shield-badge {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--bg-card);
+  box-shadow: 0 0 0 2px var(--bg-card), 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
 .media-badge {
   position: absolute;
   top: 12px;

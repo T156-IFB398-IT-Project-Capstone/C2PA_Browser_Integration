@@ -73,7 +73,7 @@ function heapSnapshot() {
     : null;
 }
 
-async function verify({ bytes, mimeType }) {
+export async function verify({ bytes, mimeType }) {
   const c2pa = await getSdk();
 
   // service-worker.js sends bytes as a plain number array (chrome.runtime
