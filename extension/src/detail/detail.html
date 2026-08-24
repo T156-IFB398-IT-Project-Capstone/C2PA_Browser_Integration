@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>C2PA Result Detail</title>
+  <link rel="stylesheet" href="detail.css" />
+</head>
+<body>
+  <header class="header">
+    <div class="brand">
+      <div class="brand-icon" aria-hidden="true">⎈</div>
+      <div class="brand-text">
+        <div class="brand-title">C2PA Verify — Result Detail</div>
+        <div id="url" class="brand-sub">—</div>
+      </div>
+    </div>
+  </header>
+
+  <main id="content" class="content">
+    <div id="empty" class="empty hidden">
+      <p>No result to show.</p>
+      <p class="hint">Open this from the popup's Scan Results — click any result to inspect it here.</p>
+    </div>
+
+    <div id="body" class="hidden">
+      <div class="panel">
+        <div id="media" class="media"></div>
+        <div id="details" class="details"></div>
+      </div>
+      <div class="panel">
+        <div class="json-label">Raw manifest</div>
+        <pre id="json" class="json"></pre>
+      </div>
+    </div>
+  </main>
+
+  <script type="module" src="detail.js"></script>
+</body>
+</html>

@@ -4,8 +4,9 @@
 // Verification runs via WASM offscreen document — no service health check needed.
 
 import { MSG, msg }              from '../shared/messages.js';
-import { VERIFY_STATUS, STORAGE_KEYS, TEST_BENCH_URLS } from '../shared/constants.js';
-import { BADGE_FILES, pickBadgeState } from '../shared/badge-map.js';
+import { STORAGE_KEYS, TEST_BENCH_URLS } from '../shared/constants.js';
+import { statusToLabel }         from '../shared/status-label.js';
+import { renderThumb }           from '../shared/render-thumb.js';
 
 // ---------------------------------------------------------------------------
 // DOM refs
@@ -36,6 +37,7 @@ const liveEmpty = $('live-empty');
 const btnTestBench   = $('btn-test-bench');
 const testBenchMenu  = $('test-bench-menu');
 
+
 // ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
@@ -46,6 +48,8 @@ let _currentTabId = null;
 let _activePanel  = 'scan';
 /** Maximum number of live items rendered in one pass. */
 const LIVE_MAX_DISPLAY = 50;
+/** sourceUrl/src -> item, populated on each render so the inspect modal can look up full detail. */
+const _lastResultsByUrl = new Map();
 
 // ---------------------------------------------------------------------------
 // Tab bar
@@ -191,68 +195,10 @@ function kindIcon(kind) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Shield badge — mapping logic lives in ../shared/badge-map.js (shared with
-// the C2PA test bench so the two can't drift apart). Popup-specific: prefix
-// each filename with this directory's actual relative path to the assets.
-// ---------------------------------------------------------------------------
-
-const BADGE_ASSETS = Object.fromEntries(
-  Object.entries(BADGE_FILES).map(([state, { file, alt }]) => [state, { src: `badges/${file}`, alt }])
-);
-
-function renderShieldBadge(item) {
-  const state = pickBadgeState(item);
-  if (!state) return null;
-  const asset = BADGE_ASSETS[state];
-  const badge = document.createElement('img');
-  badge.className = 'shield-badge';
-  badge.src   = asset.src;
-  badge.alt   = asset.alt;
-  badge.title = asset.alt;
-  return badge;
-}
-
-// Shared thumbnail element for a result item: <img> for images, a muted
-// inline <video> for video (previously an <img> pointed at a video URL,
-// which always failed silently — see KNOWN_LIMITATIONS.md L6-adjacent),
-// a kind icon otherwise. Wrapped in a positioned container so the Shield
-// badge can sit in the corner regardless of media kind.
-function renderThumb(item) {
-  const wrap = document.createElement('div');
-  wrap.className = 'result-thumb-wrap';
-
-  const url  = item.src || item.sourceUrl || '';
-  const kind = item.kind;
-
-  if (kind === 'video' && url && !url.startsWith('blob:')) {
-    const video = document.createElement('video');
-    video.className = 'result-thumb';
-    video.src = url;
-    video.muted = true;
-    video.preload = 'metadata';
-    video.onerror = () => { video.style.visibility = 'hidden'; };
-    wrap.appendChild(video);
-  } else if (url && !url.startsWith('blob:') && kind !== 'audio') {
-    const img = document.createElement('img');
-    img.className = 'result-thumb';
-    img.src     = url;
-    img.alt     = item.alt || '';
-    img.onerror = () => { img.style.visibility = 'hidden'; };
-    wrap.appendChild(img);
-  } else {
-    const icon = document.createElement('div');
-    icon.className   = 'media-icon';
-    icon.textContent = kindIcon(kind);
-    icon.setAttribute('aria-label', kind ?? 'unknown');
-    wrap.appendChild(icon);
-  }
-
-  const badge = renderShieldBadge(item);
-  if (badge) wrap.appendChild(badge);
-
-  return wrap;
-}
+// renderThumb (media + Shield badge together) now lives in
+// ../shared/render-thumb.js, imported above — shared with the new detail
+// page (extension/src/detail/) so a result renders identically wherever
+// it's shown.
 
 function renderLiveItem(item) {
   const li = document.createElement('li');
@@ -330,14 +276,30 @@ function renderSummary(summary) {
   const time = new Date(summary.scannedAt).toLocaleTimeString();
   scanMeta.textContent = `${summary.count} item${summary.count === 1 ? '' : 's'} on ${host} — scanned at ${time}`;
 
+  _lastResultsByUrl.clear();
   for (const item of summary.results) {
+    _lastResultsByUrl.set(item.sourceUrl || item.src, item);
     resultsList.appendChild(renderItem(item));
   }
 }
 
 function renderItem(item) {
+  const key = item.sourceUrl || item.src || '';
+
   const li = document.createElement('li');
-  li.className = 'result-item';
+  li.className = 'result-item result-item--clickable';
+  li.tabIndex = 0;
+  li.setAttribute('role', 'button');
+  li.setAttribute('aria-label', `Inspect detail for ${key}`);
+  li.addEventListener('click', () => openInspectDetail(key));
+  li.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openInspectDetail(key); }
+  });
+
+  const hoverHint = document.createElement('div');
+  hoverHint.className = 'result-hover-hint';
+  hoverHint.textContent = 'Inspect detail →';
+  li.appendChild(hoverHint);
 
   li.appendChild(renderThumb(item));
 
@@ -414,26 +376,31 @@ li.appendChild(body);
 return li;
 }
 
-function statusToLabel(status) {
-  switch (status) {
-    case VERIFY_STATUS.VERIFIED_TRUSTED:    return 'Verified — trusted';
-    case VERIFY_STATUS.VERIFIED_TSA:        return 'Verified via TSA';
-    case VERIFY_STATUS.VERIFIED_UNTRUSTED:  return 'Signed — provider not in trust list';
-    case VERIFY_STATUS.SIGNING_EXPIRED:     return 'Expired (No TSA)';
-    case VERIFY_STATUS.CONTENT_TAMPERED:   return 'Content tampered';
-    case VERIFY_STATUS.BROKEN_SIGNATURE:    return 'Broken signature';
-    case VERIFY_STATUS.INVALID_OR_CHANGED:  return 'Invalid or changed';
-    case VERIFY_STATUS.NO_CREDENTIALS:      return 'No Content Credentials';
-    case VERIFY_STATUS.UNSUPPORTED_FORMAT:  return 'Format not supported';
-    case 'error':                           return 'Error';
-    default:                                return status ?? 'Unknown';
-  }
-}
+// statusToLabel now lives in ../shared/status-label.js, imported above.
 
 function escapeHtml(str) {
   const el = document.createElement('div');
   el.textContent = str;
   return el.innerHTML;
+}
+
+// ---------------------------------------------------------------------------
+// Inspect detail — opens as a real browser tab, not inside the popup.
+// ---------------------------------------------------------------------------
+// The popup closes the instant a link/tab opens (same reason the test-bench
+// button can't show an in-popup toast) — so this can't be a modal inside
+// popup.html. Instead: stash the item in chrome.storage.local under a
+// well-known key, then open extension/src/detail/detail.html, which reads
+// it back on load. detail.js renders it with the same renderThumb() /
+// statusToLabel() this file uses, so the badge and status text can't drift.
+
+async function openInspectDetail(key) {
+  const item = _lastResultsByUrl.get(key);
+  if (!item) return;
+  try {
+    await chrome.storage.local.set({ [STORAGE_KEYS.INSPECT_TARGET]: item });
+    await chrome.tabs.create({ url: chrome.runtime.getURL('src/detail/detail.html') });
+  } catch { /* non-fatal — user just won't see a detail tab open */ }
 }
 
 // ---------------------------------------------------------------------------

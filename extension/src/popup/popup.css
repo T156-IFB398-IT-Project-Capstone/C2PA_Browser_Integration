@@ -545,3 +545,44 @@ code {
   padding: 1px 4px;
   border-radius: 3px;
 }
+
+/* ---------- clickable result card -> opens detail in a new tab ---------- */
+/* The whole card is the click target (see popup.js renderItem() /
+   openInspectDetail()) rather than a separate "Inspect" button. Opens
+   extension/src/detail/detail.html as a real tab, not a modal — the popup
+   closes the instant a tab opens, so nothing shown inside it would survive
+   the click anyway. */
+
+.result-item--clickable {
+  position: relative;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.result-item--clickable:hover,
+.result-item--clickable:focus-visible {
+  background: var(--bg-subtle);
+  border-color: var(--accent);
+  outline: none;
+}
+
+.result-hover-hint {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--bg);
+  padding: 2px 6px;
+  border-radius: 10px;
+  border: 1px solid var(--accent);
+  opacity: 0;
+  transform: translateY(-2px);
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  pointer-events: none;
+}
+.result-item--clickable:hover .result-hover-hint,
+.result-item--clickable:focus-visible .result-hover-hint {
+  opacity: 1;
+  transform: translateY(0);
+}

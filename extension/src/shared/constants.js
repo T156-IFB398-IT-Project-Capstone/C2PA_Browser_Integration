@@ -57,6 +57,7 @@ export const STORAGE_KEYS = Object.freeze({
   SCAN_CACHE:       'c2pa.scan_cache',        // Sprint 4 prep
   PERF_LOG:         'c2pa.perf_log',          // Sprint 3 performance harness
   TEST_BENCH_LINK:  'c2pa.test_bench_link',   // 'local' | 'public' — popup's default left-click target
+  INSPECT_TARGET:   'c2pa.inspect_target',    // one result item, handed from popup.js to the detail page
 });
 
 export const TEST_BENCH_URLS = Object.freeze({
