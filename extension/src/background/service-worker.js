@@ -81,7 +81,7 @@ async function ensureOffscreen() {
 // Fetch utilities
 // ---------------------------------------------------------------------------
 
-async function fetchAsBytes(url) {
+export async function fetchAsBytes(url) {
   const response = await fetch(url, { credentials: 'omit' });
   if (!response.ok) throw new Error(`Fetch failed (${response.status}) for ${url}`);
 
@@ -91,6 +91,7 @@ async function fetchAsBytes(url) {
     else if (/\.png(\?|$)/i.test(url)) mediaType = 'image/png';
     else if (/\.gif(\?|$)/i.test(url)) mediaType = 'image/gif';
     else if (/\.webp(\?|$)/i.test(url)) mediaType = 'image/webp';
+    else if (/\.mp4(\?|$)/i.test(url)) mediaType = 'video/mp4';
   }
 
   const buf = await response.arrayBuffer();
