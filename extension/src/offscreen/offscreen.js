@@ -11,11 +11,6 @@
 import { createC2pa }               from '@contentauth/c2pa-web/inline';
 import { MSG }                       from '../shared/messages.js';
 import { VERIFY_STATUS }             from '../shared/constants.js';
-import c2paTrustPem                  from '../../../trusted-certs/C2PA-TRUST-LIST.pem';
-import tsaTrustPem                   from '../../../trusted-certs/C2PA-TSA-TRUST-LIST.pem';
-
-// Combined PEM trust anchors for C2PA CAs and TSAs.
-const COMBINED_TRUST_PEM = [c2paTrustPem, tsaTrustPem].filter(Boolean).join('\n\n');
 
 // ── SDK singleton ─────────────────────────────────────────────────────────────
 // Defer initialisation to the first verification request so the offscreen
@@ -24,15 +19,16 @@ let _sdkPromise = null;
 
 function getSdk() {
   if (!_sdkPromise) {
+    // Initialize without hardcoded PEMs. This relies on the SDK's built-in
+    // cawgTrust setting, which validates against the official CAWG trust list 
+    // dynamically and automatically.
     _sdkPromise = createC2pa({
       settings: {
-        trust: {
-          trustAnchors: COMBINED_TRUST_PEM,
-          userAnchors: COMBINED_TRUST_PEM,
-        },
-      },
+        cawgTrust: {
+          verifyTrustList: true
+        }
+      }
     }).catch(err => {
-      // Fallback without custom settings if settings configuration fails
       console.warn('[c2pa-offscreen] Failed init with trust settings, falling back to default:', err);
       return createC2pa();
     });
@@ -83,6 +79,7 @@ async function verify({ bytes, mimeType }) {
     manifest: extractManifest(store),
     error:    null,
   };
+}
 
 // ── Helpers & Status Determination ───────────────────────────────────────────
 
