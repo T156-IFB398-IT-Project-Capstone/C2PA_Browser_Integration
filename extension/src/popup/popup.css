@@ -282,13 +282,32 @@ body {
   background: var(--bg);
 }
 
-.result-thumb {
+.result-thumb-wrap {
+  position: relative;
   width: 48px; height: 48px;
   flex-shrink: 0;
+}
+
+.result-thumb {
+  width: 48px; height: 48px;
   border-radius: var(--radius-sm);
   background: var(--bg-subtle);
   object-fit: cover;
   border: 1px solid var(--border);
+}
+
+/* Shield verification badge — corner overlay on the thumbnail, same asset
+   set for image and video results. Absent entirely (not a placeholder icon)
+   when the result isn't badge-eligible — see pickBadgeState() in popup.js. */
+.shield-badge {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--bg);
+  box-shadow: 0 0 0 1.5px var(--bg);
 }
 
 /* Icon placeholder for non-image media kinds (video, audio) */

@@ -173,7 +173,7 @@ function extractManifest(store) {
   if (!m) return null;
 
   const creator = extractCreator(m);
-  const ai_disclosure = hasAiAssertion(m.assertions);
+  const { ai_disclosure, ai_source_type, has_non_ai_edit } = analyzeActions(m.assertions);
   const signer        = m.signature_info?.common_name
     ? {
         common_name: m.signature_info.common_name,
@@ -199,7 +199,7 @@ function extractManifest(store) {
     expired: isCertExpired,
   };
 
-  return { creator, ai_disclosure, signer, tsa_info, validity_window };
+  return { creator, ai_disclosure, ai_source_type, has_non_ai_edit, signer, tsa_info, validity_window };
 }
 
 // Resolve creator string: author name > tool name > raw claim generator
@@ -318,28 +318,45 @@ function extractValidity(store, manifest) {
   };
 }
 
-// Detect AI-generated content by inspecting c2pa.actions / c2pa.actions.v2
-// assertion data for IPTC digitalSourceType values.
-// Real-world AI manifests (ChatGPT, Firefly, Sora) embed this in action objects,
-// not in the assertion label — label-pattern matching misses them entirely.
-function hasAiAssertion(assertions) {
-  if (!Array.isArray(assertions)) return false;
+// Inspect c2pa.actions / c2pa.actions.v2 assertion data for IPTC
+// digitalSourceType values (AI involvement) and non-AI edit action verbs.
+// Real-world AI manifests (ChatGPT, Firefly, Sora) embed digitalSourceType in
+// action objects, not in the assertion label — label-pattern matching misses
+// them entirely.
+//
+// ai_source_type distinguishes fully-generated from AI-assisted-edit content
+// (needed for the Shield AI-Generated vs AI-Edited badge distinction — a
+// boolean alone can't tell them apart). has_non_ai_edit flags a declared,
+// non-AI edit action (crop, color adjustment, etc.) for the
+// Authentic-but-Edited badge. Both are additive to the existing ai_disclosure
+// boolean, not a replacement — nothing that already reads ai_disclosure
+// needs to change.
+function analyzeActions(assertions) {
+  const result = { ai_disclosure: false, ai_source_type: null, has_non_ai_edit: false };
+  if (!Array.isArray(assertions)) return result;
 
-  const AI_SOURCE_TYPES = [
-    'trainedAlgorithmicMedia',
-    'compositeWithTrainedAlgorithmicMedia',
-    'algorithmicMedia',
-  ];
+  const AI_GENERATED_TYPES = ['trainedAlgorithmicMedia', 'algorithmicMedia'];
+  const AI_COMPOSITE_TYPES = ['compositeWithTrainedAlgorithmicMedia'];
+  const NON_EDIT_ACTIONS   = new Set(['c2pa.created', 'c2pa.opened']);
 
   for (const assertion of assertions) {
     if (!/^c2pa\.actions(\.v\d+)?$/.test(assertion?.label ?? '')) continue;
     const actions = assertion?.data?.actions;
     if (!Array.isArray(actions)) continue;
+
     for (const action of actions) {
       const dst = action?.digitalSourceType ?? '';
-      if (AI_SOURCE_TYPES.some(t => dst.includes(t))) return true;
+      if (AI_GENERATED_TYPES.some(t => dst.includes(t))) {
+        result.ai_disclosure = true;
+        result.ai_source_type = 'generated';
+      } else if (AI_COMPOSITE_TYPES.some(t => dst.includes(t))) {
+        result.ai_disclosure = true;
+        if (result.ai_source_type !== 'generated') result.ai_source_type = 'composite';
+      } else if (!NON_EDIT_ACTIONS.has(action?.action ?? '')) {
+        result.has_non_ai_edit = true;
+      }
     }
   }
 
-  return false;
+  return result;
 }

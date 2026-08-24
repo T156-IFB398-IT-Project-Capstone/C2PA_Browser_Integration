@@ -186,6 +186,95 @@ function kindIcon(kind) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Shield badge — VERIFY_STATUS + manifest -> one of 4 states, or none
+// ---------------------------------------------------------------------------
+//
+// Only statuses where the hash binding and signature are cryptographically
+// intact are badge-eligible. CONTENT_TAMPERED, BROKEN_SIGNATURE,
+// INVALID_OR_CHANGED, NO_CREDENTIALS, UNSUPPORTED_FORMAT, and 'error' get no
+// badge — the existing text status pill (result-status) already covers them
+// honestly. Forcing one of these four "authentic" states onto a failed/absent
+// case would be exactly the traffic-light overclaim CLAUDE.md's Hard
+// Constraint #4 rules out. Applies identically to image and video results —
+// the distinction is media-kind-independent.
+const BADGE_ELIGIBLE_STATUSES = new Set([
+  VERIFY_STATUS.VERIFIED_TRUSTED,
+  VERIFY_STATUS.VERIFIED_TSA,
+  VERIFY_STATUS.VERIFIED_UNTRUSTED,
+  VERIFY_STATUS.SIGNING_EXPIRED,
+]);
+
+const BADGE_ASSETS = {
+  authentic:        { src: 'badges/shield-authentic.svg',   alt: 'Authentic' },
+  authentic_edited: { src: 'badges/shield-edited-2.svg',    alt: 'Authentic — Edited' },
+  ai_edited:        { src: 'badges/shield-ai-edited.svg',   alt: 'AI-Edited' },
+  ai_generated:     { src: 'badges/shield-ai-generated.svg', alt: 'AI-Generated' },
+};
+
+function pickBadgeState(item) {
+  if (!BADGE_ELIGIBLE_STATUSES.has(item.status)) return null;
+  const m = item.manifest;
+  if (!m) return null;
+  if (m.ai_source_type === 'generated') return 'ai_generated';
+  if (m.ai_source_type === 'composite') return 'ai_edited';
+  if (m.has_non_ai_edit) return 'authentic_edited';
+  return 'authentic';
+}
+
+function renderShieldBadge(item) {
+  const state = pickBadgeState(item);
+  if (!state) return null;
+  const asset = BADGE_ASSETS[state];
+  const badge = document.createElement('img');
+  badge.className = 'shield-badge';
+  badge.src   = asset.src;
+  badge.alt   = asset.alt;
+  badge.title = asset.alt;
+  return badge;
+}
+
+// Shared thumbnail element for a result item: <img> for images, a muted
+// inline <video> for video (previously an <img> pointed at a video URL,
+// which always failed silently — see KNOWN_LIMITATIONS.md L6-adjacent),
+// a kind icon otherwise. Wrapped in a positioned container so the Shield
+// badge can sit in the corner regardless of media kind.
+function renderThumb(item) {
+  const wrap = document.createElement('div');
+  wrap.className = 'result-thumb-wrap';
+
+  const url  = item.src || item.sourceUrl || '';
+  const kind = item.kind;
+
+  if (kind === 'video' && url && !url.startsWith('blob:')) {
+    const video = document.createElement('video');
+    video.className = 'result-thumb';
+    video.src = url;
+    video.muted = true;
+    video.preload = 'metadata';
+    video.onerror = () => { video.style.visibility = 'hidden'; };
+    wrap.appendChild(video);
+  } else if (url && !url.startsWith('blob:') && kind !== 'audio') {
+    const img = document.createElement('img');
+    img.className = 'result-thumb';
+    img.src     = url;
+    img.alt     = item.alt || '';
+    img.onerror = () => { img.style.visibility = 'hidden'; };
+    wrap.appendChild(img);
+  } else {
+    const icon = document.createElement('div');
+    icon.className   = 'media-icon';
+    icon.textContent = kindIcon(kind);
+    icon.setAttribute('aria-label', kind ?? 'unknown');
+    wrap.appendChild(icon);
+  }
+
+  const badge = renderShieldBadge(item);
+  if (badge) wrap.appendChild(badge);
+
+  return wrap;
+}
+
 function renderLiveItem(item) {
   const li = document.createElement('li');
   li.className = 'result-item';
@@ -271,12 +360,7 @@ function renderItem(item) {
   const li = document.createElement('li');
   li.className = 'result-item';
 
-  const img = document.createElement('img');
-  img.className = 'result-thumb';
-  img.src       = item.src || item.sourceUrl || '';
-  img.alt       = item.alt || '';
-  img.onerror   = () => { img.style.visibility = 'hidden'; };
-  li.appendChild(img);
+  li.appendChild(renderThumb(item));
 
   const body = document.createElement('div');
   body.className = 'result-body';
