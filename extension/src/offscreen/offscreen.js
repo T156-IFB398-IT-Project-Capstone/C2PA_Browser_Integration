@@ -83,6 +83,7 @@ async function verify({ bytes, mimeType }) {
     manifest: extractManifest(store),
     error:    null,
   };
+}
 
 // ── Helpers & Status Determination ───────────────────────────────────────────
 
