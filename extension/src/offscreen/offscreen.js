@@ -62,6 +62,17 @@ if (typeof chrome !== 'undefined' && chrome?.runtime?.onMessage) {
 
 // ── Core verification ─────────────────────────────────────────────────────────
 
+// JS-heap snapshot for the performance harness. Chrome-only and
+// approximate — performance.memory does not include WASM linear memory,
+// so this understates the true footprint of the c2pa-web engine itself
+// (same caveat SPIKE-001 already documented). Never throws: absent on
+// non-Chrome/other contexts, callers get null and treat it as "not sampled".
+function heapSnapshot() {
+  return performance.memory
+    ? { usedJSHeapSize: performance.memory.usedJSHeapSize }
+    : null;
+}
+
 async function verify({ bytes, mimeType }) {
   const c2pa = await getSdk();
 
@@ -69,19 +80,34 @@ async function verify({ bytes, mimeType }) {
   // does not support ArrayBuffer transfer). Reconstruct as Uint8Array.
   const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
 
-  const blob   = new Blob([u8], { type: mimeType });
+  const blob = new Blob([u8], { type: mimeType });
+
+  // Performance-harness instrumentation only — measures fromBlob() +
+  // manifestStore(), matching SPIKE-001's "verify-only" definition
+  // (excludes SDK cold-start and byte fetch, both measured separately by
+  // the caller). Does not change verification behaviour.
+  const heapBefore = heapSnapshot();
+  const wasmStart   = performance.now();
+
   const reader = await c2pa.reader.fromBlob(mimeType, blob);
 
   if (!reader) {
-    return { status: VERIFY_STATUS.NO_CREDENTIALS, manifest: null, error: null };
+    const wasmVerifyMs = +(performance.now() - wasmStart).toFixed(2);
+    return {
+      status: VERIFY_STATUS.NO_CREDENTIALS, manifest: null, error: null,
+      perf: { wasmVerifyMs, heapBefore, heapAfter: heapSnapshot() },
+    };
   }
 
   const store = await reader.manifestStore();
+  const wasmVerifyMs = +(performance.now() - wasmStart).toFixed(2);
+  const heapAfter = heapSnapshot();
 
   return {
     status:   determineStatus(store),
     manifest: extractManifest(store),
     error:    null,
+    perf:     { wasmVerifyMs, heapBefore, heapAfter },
   };
 }
 

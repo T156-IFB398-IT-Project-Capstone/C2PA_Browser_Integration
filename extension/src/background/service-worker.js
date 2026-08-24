@@ -34,6 +34,7 @@ import {
   OFFSCREEN_URL,
   OFFSCREEN_REASON,
   VERIFY_STATUS,
+  PERF_LOG_MAX_ENTRIES,
 } from '../shared/constants.js';
 
 // ---------------------------------------------------------------------------
@@ -82,6 +83,7 @@ async function ensureOffscreen() {
 // ---------------------------------------------------------------------------
 
 export async function fetchAsBytes(url) {
+  const fetchStart = performance.now();
   const response = await fetch(url, { credentials: 'omit' });
   if (!response.ok) throw new Error(`Fetch failed (${response.status}) for ${url}`);
 
@@ -98,7 +100,10 @@ export async function fetchAsBytes(url) {
   if (buf.byteLength > MAX_ASSET_BYTES) {
     throw new Error(`Asset too large (${buf.byteLength} bytes): ${url}`);
   }
-  return { mediaType, bytes: new Uint8Array(buf) };
+  // performance.now() delta — single-context (service worker) measurement,
+  // valid to subtract directly. Used by the Sprint 3 performance harness.
+  const fetchMs = +(performance.now() - fetchStart).toFixed(2);
+  return { mediaType, bytes: new Uint8Array(buf), fetchMs };
 }
 
 // ---------------------------------------------------------------------------
@@ -112,9 +117,10 @@ async function verifyOne(url, bypassCache = false) {
   }
 
   scanQueue.markInFlight(url);
+  const verifyStartedAt = Date.now();
 
   try {
-    const { mediaType, bytes } = await fetchAsBytes(url);
+    const { mediaType, bytes, fetchMs } = await fetchAsBytes(url);
 
     if (!SUPPORTED_MIME_TYPES.includes(mediaType)) {
       const record = { sourceUrl: url, status: VERIFY_STATUS.UNSUPPORTED_FORMAT, manifest: null, error: null };
@@ -128,15 +134,31 @@ async function verifyOne(url, bypassCache = false) {
     // chrome.runtime.sendMessage uses JSON serialization — ArrayBuffer becomes
     // "[object ArrayBuffer]". Send as a plain number array; offscreen
     // reconstructs as Uint8Array before passing to c2pa-web.
+    const messageStart = performance.now();
     const response = await chrome.runtime.sendMessage(
       msg(MSG.VERIFY_REQUEST, { bytes: Array.from(bytes), mimeType: mediaType })
     );
+    // Single-context (service worker) measurement — includes the offscreen
+    // document's own wasmVerifyMs (response.perf) plus message-passing
+    // overhead, so (messageRoundTripMs - wasmVerifyMs) approximates that
+    // overhead. Sprint 3 performance harness only; no behaviour change.
+    const messageRoundTripMs = +(performance.now() - messageStart).toFixed(2);
 
     const record = {
       sourceUrl: url,
       status: response.status,
       manifest: response.manifest ?? null,
       error: response.error ?? null,
+      perf: {
+        byteLength: bytes.length,
+        fetchMs,
+        messageRoundTripMs,
+        wasmVerifyMs: response.perf?.wasmVerifyMs ?? null,
+        heapBeforeBytes: response.perf?.heapBefore?.usedJSHeapSize ?? null,
+        heapAfterBytes:  response.perf?.heapAfter?.usedJSHeapSize ?? null,
+        verifyStartedAt,
+        resultAt: Date.now(),
+      },
     };
 
     resultCache.set(url, { status: record.status, manifest: record.manifest, error: record.error });
@@ -178,6 +200,25 @@ async function runConcurrent(tasks, limit) {
 }
 
 // ---------------------------------------------------------------------------
+// Performance harness — Sprint 3
+// ---------------------------------------------------------------------------
+//
+// One record per verified item, appended in a single batched read-modify-
+// write per scan (not per item — SCAN_CONCURRENCY runs items concurrently,
+// and per-item writes would race on chrome.storage.local's read-then-write).
+// Capped at PERF_LOG_MAX_ENTRIES, oldest dropped first. Retrieve from the
+// service worker's own DevTools console — see
+// docs/phase2/performance-harness-evidence/README.md.
+async function appendPerfEntries(entries) {
+  if (!entries.length) return;
+  const stored = await chrome.storage.local.get(STORAGE_KEYS.PERF_LOG);
+  const log = stored[STORAGE_KEYS.PERF_LOG] ?? [];
+  log.push(...entries);
+  if (log.length > PERF_LOG_MAX_ENTRIES) log.splice(0, log.length - PERF_LOG_MAX_ENTRIES);
+  await chrome.storage.local.set({ [STORAGE_KEYS.PERF_LOG]: log });
+}
+
+// ---------------------------------------------------------------------------
 // Active-tab scan
 // ---------------------------------------------------------------------------
 
@@ -199,16 +240,44 @@ async function scanActiveTab() {
   const total = mediaItems.length;
   let done = 0;
 
+  const perfEntries = [];
+
   const tasks = mediaItems.map(item => async () => {
     const res = await verifyOne(item.src, true); // bypass cache on manual page scan
     done++;
     chrome.runtime.sendMessage(
       msg(MSG.SCAN_PROGRESS, { done, total })
     ).catch(() => { });
+
+    if (res.perf) {
+      const resultAt = res.perf.resultAt;
+      perfEntries.push({
+        url: item.src,
+        kind: item.kind,
+        status: res.status,
+        byteLength: res.perf.byteLength,
+        detectedAt: item.detectedAt ?? null,
+        verifyStartedAt: res.perf.verifyStartedAt,
+        resultAt,
+        // detection -> result, cross-context so Date.now() (wall clock) not
+        // performance.now() (per-context origin) — see content-script.js.
+        totalLatencyMs: item.detectedAt != null ? resultAt - item.detectedAt : null,
+        fetchMs: res.perf.fetchMs,
+        messageRoundTripMs: res.perf.messageRoundTripMs,
+        wasmVerifyMs: res.perf.wasmVerifyMs,
+        heapBeforeBytes: res.perf.heapBeforeBytes,
+        heapAfterBytes: res.perf.heapAfterBytes,
+        heapDeltaBytes: (res.perf.heapBeforeBytes != null && res.perf.heapAfterBytes != null)
+          ? res.perf.heapAfterBytes - res.perf.heapBeforeBytes
+          : null,
+      });
+    }
+
     return { ...item, ...res, sourceUrl: res.sourceUrl ?? item.src };
   });
 
   const results = await runConcurrent(tasks, SCAN_CONCURRENCY);
+  await appendPerfEntries(perfEntries);
 
   const summary = {
     pageUrl: response.pageUrl,
