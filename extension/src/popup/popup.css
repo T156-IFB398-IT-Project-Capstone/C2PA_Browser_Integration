@@ -92,6 +92,74 @@ a.icon-btn {
   text-decoration: none;
 }
 
+/* Custom right-click menu for #btn-test-bench — see popup.html for why a
+   plain native context menu wouldn't carry the explanatory text. Anchored
+   under the header, not at cursor position (popup is only 360px wide). */
+.context-menu {
+  position: absolute;
+  top: 44px;
+  right: 10px;
+  width: 260px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  z-index: 20;
+  overflow: hidden;
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--border);
+}
+.context-menu-item:last-of-type { border-bottom: none; }
+
+.context-menu-open {
+  flex: 1;
+  min-width: 0;
+  display: block;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 10px 12px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.context-menu-open:hover { background: var(--bg-subtle); }
+
+.context-menu-default {
+  flex-shrink: 0;
+  width: 32px;
+  background: transparent;
+  border: none;
+  border-left: 1px solid var(--border);
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+.context-menu-default:hover { background: var(--bg-subtle); color: var(--accent); }
+.context-menu-default.is-default { color: var(--accent); }
+
+.context-menu-hint {
+  padding: 6px 12px;
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--bg-subtle);
+}
+
+.context-menu-title {
+  font-weight: 600;
+  font-size: 12px;
+  margin-bottom: 2px;
+}
+
+.context-menu-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
 /* ---------- main view ---------- */
 .view { padding: 12px 14px 16px; }
 

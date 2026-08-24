@@ -4,7 +4,7 @@
 // Verification runs via WASM offscreen document — no service health check needed.
 
 import { MSG, msg }              from '../shared/messages.js';
-import { VERIFY_STATUS }         from '../shared/constants.js';
+import { VERIFY_STATUS, STORAGE_KEYS, TEST_BENCH_URLS } from '../shared/constants.js';
 import { BADGE_FILES, pickBadgeState } from '../shared/badge-map.js';
 
 // ---------------------------------------------------------------------------
@@ -31,6 +31,10 @@ const progressWrap = $('scan-progress');
 const liveList  = $('live-list');
 const liveMeta  = $('live-meta');
 const liveEmpty = $('live-empty');
+
+// Test bench link + its right-click menu
+const btnTestBench   = $('btn-test-bench');
+const testBenchMenu  = $('test-bench-menu');
 
 // ---------------------------------------------------------------------------
 // State
@@ -431,6 +435,73 @@ function escapeHtml(str) {
   el.textContent = str;
   return el.innerHTML;
 }
+
+// ---------------------------------------------------------------------------
+// Test bench link — right-click menu + persisted left-click default
+// ---------------------------------------------------------------------------
+// Left-click on #btn-test-bench opens whichever of local/public is currently
+// the default (persisted in chrome.storage.local, defaults to 'local').
+// Right-click shows a menu explaining the difference between the two, and
+// lets the user change which one left-click opens (the ☆/★ button per row —
+// separate from clicking the row itself, which just opens that one now).
+
+async function loadTestBenchDefault() {
+  if (!btnTestBench) return 'local';
+  let key = 'local';
+  try {
+    const stored = await chrome.storage.local.get(STORAGE_KEYS.TEST_BENCH_LINK);
+    key = stored[STORAGE_KEYS.TEST_BENCH_LINK] ?? 'local';
+  } catch { /* non-fatal — fall back to local */ }
+  applyTestBenchDefault(key);
+  return key;
+}
+
+function applyTestBenchDefault(key) {
+  btnTestBench.href = TEST_BENCH_URLS[key] ?? TEST_BENCH_URLS.local;
+  testBenchMenu?.querySelectorAll('.context-menu-default').forEach(btn => {
+    const isDefault = btn.dataset.key === key;
+    btn.textContent = isDefault ? '★' : '☆';
+    btn.classList.toggle('is-default', isDefault);
+  });
+}
+
+function setupTestBenchMenu() {
+  if (!btnTestBench || !testBenchMenu) return;
+
+  btnTestBench.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    testBenchMenu.classList.remove('hidden');
+  });
+
+  testBenchMenu.addEventListener('click', async (e) => {
+    const defaultBtn = e.target.closest('.context-menu-default');
+    if (defaultBtn) {
+      const key = defaultBtn.dataset.key;
+      applyTestBenchDefault(key);
+      try { await chrome.storage.local.set({ [STORAGE_KEYS.TEST_BENCH_LINK]: key }); } catch { /* non-fatal */ }
+      return; // don't navigate, don't close the menu — just updates the star
+    }
+
+    const openBtn = e.target.closest('.context-menu-open');
+    if (openBtn) {
+      window.open(openBtn.dataset.url, '_blank', 'noopener');
+      testBenchMenu.classList.add('hidden');
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!testBenchMenu.classList.contains('hidden') && e.target !== btnTestBench && !testBenchMenu.contains(e.target)) {
+      testBenchMenu.classList.add('hidden');
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') testBenchMenu.classList.add('hidden');
+  });
+}
+
+setupTestBenchMenu();
+loadTestBenchDefault();
 
 // ---------------------------------------------------------------------------
 // Initialisation

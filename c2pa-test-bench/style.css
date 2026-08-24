@@ -59,6 +59,34 @@ body {
   padding: 0 24px;
 }
 
+/* Explains which address (local dev vs public) this page is being viewed
+   at — see app.js initSiteBanner(). Full-width, sits above .container. */
+.site-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 24px;
+  background: var(--bg-input);
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+.site-banner strong { color: var(--text-primary); }
+
+.site-banner-dismiss {
+  margin-left: auto;
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+.site-banner-dismiss:hover { color: var(--text-primary); }
+
 /* Header */
 header {
   padding: 40px 0 24px 0;

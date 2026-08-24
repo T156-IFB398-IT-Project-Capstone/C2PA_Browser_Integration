@@ -58,6 +58,23 @@ async function verifyBytes(bytes, filename, providedType = '') {
   return window.C2PAVerify({ bytes, mimeType });
 }
 
+// PASS/FAIL-with-reason phrasing (matches the old mock's style) built
+// entirely from real fields — no fabricated claim, unlike the original.
+function checksumFor(status, manifest, error) {
+  if (error) return `FAIL (${error.message})`;
+  if (!manifest) return getStatusLabel(status); // no_credentials / unsupported_format — nothing to check
+  switch (status) {
+    case VERIFY_STATUS.CONTENT_TAMPERED:   return 'FAIL (data hash mismatch)';
+    case VERIFY_STATUS.BROKEN_SIGNATURE:   return 'FAIL (claim signature corrupt)';
+    case VERIFY_STATUS.INVALID_OR_CHANGED: return 'FAIL (manifest invalid)';
+  }
+  if (manifest.tsa_info?.validated) return 'PASS (TSA timestamp validated)';
+  if (status === VERIFY_STATUS.VERIFIED_TRUSTED)   return 'PASS (signature valid, trusted signer)';
+  if (status === VERIFY_STATUS.VERIFIED_UNTRUSTED) return 'PASS (signature valid, untrusted signer)';
+  if (status === VERIFY_STATUS.SIGNING_EXPIRED)    return 'PASS (signature valid, certificate expired)';
+  return getStatusLabel(status);
+}
+
 // Builds the verification-derived subset of a card object from a real
 // { status, manifest, error } response — used for both the on-load assets
 // and uploaded files, so the two card shapes can never drift apart.
@@ -73,7 +90,7 @@ function fieldsFromResult({ status, manifest, error }) {
     ski: 'N/A',
     timestamp: manifest?.tsa_info?.time ?? manifest?.signer?.time ?? 'N/A',
     validationStatus: status,
-    checksum: error ? `FAIL (${error.message})` : getStatusLabel(status),
+    checksum: checksumFor(status, manifest, error),
     techId: error ? 'verify() threw' : (manifest ? 'reader.manifestStore() -> populated' : 'fromBlob() -> null'),
     rawManifest: manifest,
   };
@@ -120,7 +137,44 @@ async function verifyInitialCases() {
   renderGrid();
 }
 
+// This page is reachable at more than one address (a local dev server and
+// the real hosted deployment) — see the extension popup's test-bench
+// right-click menu. Explains which one you're on, every time, so it's not
+// assumed anyone already knows. Dismissible per-browser via localStorage,
+// not shown again once dismissed on that address (each hostname's dismissal
+// is independent — localStorage is origin-scoped).
+function initSiteBanner() {
+  const DISMISS_KEY = 'c2pa-testbench-banner-dismissed';
+  try {
+    if (localStorage.getItem(DISMISS_KEY)) return;
+  } catch { /* localStorage unavailable — just show the banner every time */ }
+
+  const isLocal = /^(127\.0\.0\.1|localhost)$/.test(location.hostname);
+  const banner = document.createElement('div');
+  banner.className = 'site-banner';
+
+  const text = document.createElement('span');
+  text.innerHTML = isLocal
+    ? '<strong>Local dev instance.</strong> You\'re viewing 127.0.0.1 — a local dev server. May include unreleased changes; only reachable while it\'s actually running on this machine.'
+    : '<strong>Public test bench.</strong> You\'re viewing c2patest.pages.dev — the real hosted deployment, reachable by anyone. May not reflect local changes until someone deploys them.';
+  banner.appendChild(text);
+
+  const dismiss = document.createElement('button');
+  dismiss.className = 'site-banner-dismiss';
+  dismiss.setAttribute('aria-label', 'Dismiss');
+  dismiss.textContent = '×';
+  dismiss.addEventListener('click', () => {
+    banner.remove();
+    try { localStorage.setItem(DISMISS_KEY, '1'); } catch { /* non-fatal */ }
+  });
+  banner.appendChild(dismiss);
+
+  document.body.insertBefore(banner, document.body.firstChild);
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+  initSiteBanner();
+
   // Loading state — cards populate once live verification completes
   // (WASM cold-start on the first call adds real, if brief, latency).
   const grid = document.getElementById('media-grid');

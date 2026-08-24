@@ -15,9 +15,33 @@
         <div class="brand-sub">QUT × Databench</div>
       </div>
     </div>
-    <a id="btn-test-bench" class="icon-btn" href="https://c2patest.pages.dev" target="_blank"
-       rel="noopener" title="Open the C2PA test bench" aria-label="Open the C2PA test bench">⧉</a>
+    <a id="btn-test-bench" class="icon-btn" href="http://127.0.0.1:8976" target="_blank"
+       rel="noopener" title="Open the C2PA test bench (right-click for options)"
+       aria-label="Open the C2PA test bench (right-click for options)">⧉</a>
   </header>
+
+  <!-- Custom context menu — right-click #btn-test-bench. Default click above
+       (127.0.0.1:8976) is a local dev server, not part of the shipped
+       extension; this menu explains the difference and offers the public
+       alternative. Positioned near the button, not at cursor coordinates —
+       the popup is only 360px wide. -->
+  <div id="test-bench-menu" class="context-menu hidden" role="menu" aria-label="Test bench link options">
+    <div class="context-menu-item" data-key="local">
+      <button class="context-menu-open" data-url="http://127.0.0.1:8976" role="menuitem">
+        <div class="context-menu-title">Local dev test bench</div>
+        <div class="context-menu-desc">127.0.0.1:8976 — a local dev server. Only reachable while it's actually running on this machine.</div>
+      </button>
+      <button class="context-menu-default" data-key="local" title="Set as the left-click default" aria-label="Set local dev test bench as the left-click default">☆</button>
+    </div>
+    <div class="context-menu-item" data-key="public">
+      <button class="context-menu-open" data-url="https://c2patest.pages.dev" role="menuitem">
+        <div class="context-menu-title">Public test bench</div>
+        <div class="context-menu-desc">c2patest.pages.dev — the real hosted deployment. Works for anyone, but may not reflect local changes until someone deploys them.</div>
+      </button>
+      <button class="context-menu-default" data-key="public" title="Set as the left-click default" aria-label="Set public test bench as the left-click default">☆</button>
+    </div>
+    <div class="context-menu-hint">☆ / ★ — set which one opens on a plain click</div>
+  </div>
 
   <!-- ===== Main view ===== -->
   <main id="view-main" class="view">
