@@ -114,7 +114,8 @@ constraint Steven needs to hear about at the next partner meeting.
 1. **Findings** — section 7 below, completed.
 2. **Supported-formats matrix** — a table of format × parse × validate ×
    caveats, covering JPEG, PNG, and MP4. This becomes part of the handover
-   documentation.
+   documentation. **Completed:** [`supported-formats-matrix.md`](./supported-formats-matrix.md)
+   (Sprint 2, alongside the extension-side video verification gap fix).
 3. **A recommendation** — one paragraph naming the outcome letter and what
    Sprint 2 should do.
 4. **Risk register update** — R1 moves to Closed, or its treatment changes.

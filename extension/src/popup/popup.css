@@ -82,6 +82,84 @@ body {
 }
 .icon-btn:hover { background: var(--bg); border-color: var(--border); }
 
+/* icon-btn as a link (test-bench button) needs its own display/centering —
+   <a> is inline by default, unlike <button>, so width/height/centering
+   don't apply without this. */
+a.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+/* Custom right-click menu for #btn-test-bench — see popup.html for why a
+   plain native context menu wouldn't carry the explanatory text. Anchored
+   under the header, not at cursor position (popup is only 360px wide). */
+.context-menu {
+  position: absolute;
+  top: 44px;
+  right: 10px;
+  width: 260px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  z-index: 20;
+  overflow: hidden;
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--border);
+}
+.context-menu-item:last-of-type { border-bottom: none; }
+
+.context-menu-open {
+  flex: 1;
+  min-width: 0;
+  display: block;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 10px 12px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.context-menu-open:hover { background: var(--bg-subtle); }
+
+.context-menu-default {
+  flex-shrink: 0;
+  width: 32px;
+  background: transparent;
+  border: none;
+  border-left: 1px solid var(--border);
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+.context-menu-default:hover { background: var(--bg-subtle); color: var(--accent); }
+.context-menu-default.is-default { color: var(--accent); }
+
+.context-menu-hint {
+  padding: 6px 12px;
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--bg-subtle);
+}
+
+.context-menu-title {
+  font-weight: 600;
+  font-size: 12px;
+  margin-bottom: 2px;
+}
+
+.context-menu-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
 /* ---------- main view ---------- */
 .view { padding: 12px 14px 16px; }
 
@@ -293,12 +371,32 @@ body {
 }
 
 .result-thumb {
+.result-thumb-wrap {
+  position: relative;
   width: 48px; height: 48px;
   flex-shrink: 0;
+}
+
+.result-thumb {
+  width: 48px; height: 48px;
   border-radius: var(--radius-sm);
   background: var(--bg-subtle);
   object-fit: cover;
   border: 1px solid var(--border);
+}
+
+/* Shield verification badge — corner overlay on the thumbnail, same asset
+   set for image and video results. Absent entirely (not a placeholder icon)
+   when the result isn't badge-eligible — see pickBadgeState() in popup.js. */
+.shield-badge {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--bg);
+  box-shadow: 0 0 0 1.5px var(--bg);
 }
 
 /* Icon placeholder for non-image media kinds (video, audio) */
@@ -457,4 +555,45 @@ code {
   background: var(--bg-subtle);
   padding: 1px 4px;
   border-radius: 3px;
+}
+
+/* ---------- clickable result card -> opens detail in a new tab ---------- */
+/* The whole card is the click target (see popup.js renderItem() /
+   openInspectDetail()) rather than a separate "Inspect" button. Opens
+   extension/src/detail/detail.html as a real tab, not a modal — the popup
+   closes the instant a tab opens, so nothing shown inside it would survive
+   the click anyway. */
+
+.result-item--clickable {
+  position: relative;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.result-item--clickable:hover,
+.result-item--clickable:focus-visible {
+  background: var(--bg-subtle);
+  border-color: var(--accent);
+  outline: none;
+}
+
+.result-hover-hint {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--bg);
+  padding: 2px 6px;
+  border-radius: 10px;
+  border: 1px solid var(--accent);
+  opacity: 0;
+  transform: translateY(-2px);
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  pointer-events: none;
+}
+.result-item--clickable:hover .result-hover-hint,
+.result-item--clickable:focus-visible .result-hover-hint {
+  opacity: 1;
+  transform: translateY(0);
 }

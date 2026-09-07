@@ -52,10 +52,22 @@ export const MEDIA_KIND = Object.freeze({
 // --- Storage keys ------------------------------------------------------------
 
 export const STORAGE_KEYS = Object.freeze({
-  LAST_SCAN:  'c2pa.last_scan',
-  SETTINGS:   'c2pa.settings',
-  SCAN_CACHE: 'c2pa.scan_cache',  // Sprint 4 prep
+  LAST_SCAN:        'c2pa.last_scan',
+  SETTINGS:         'c2pa.settings',
+  SCAN_CACHE:       'c2pa.scan_cache',        // Sprint 4 prep
+  PERF_LOG:         'c2pa.perf_log',          // Sprint 3 performance harness
+  TEST_BENCH_LINK:  'c2pa.test_bench_link',   // 'local' | 'public' — popup's default left-click target
+  INSPECT_TARGET:   'c2pa.inspect_target',    // one result item, handed from popup.js to the detail page
 });
+
+export const TEST_BENCH_URLS = Object.freeze({
+  local:  'http://127.0.0.1:8976',
+  public: 'https://c2patest.pages.dev',
+});
+
+// Cap on retained performance-harness records — bounds chrome.storage.local
+// usage across repeated scans; oldest entries are dropped first.
+export const PERF_LOG_MAX_ENTRIES = 1000;
 
 // --- Verification status -----------------------------------------------------
 

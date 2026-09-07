@@ -1,0 +1,44 @@
+[
+  {
+    "case": "sora.mp4 / correct Content-Type",
+    "url": "http://127.0.0.1:8974/assets/sora.mp4?condition=correct",
+    "resolvedMediaType": "video/mp4",
+    "byteLength": 5278370
+  },
+  {
+    "case": "sora.mp4 / missing Content-Type",
+    "url": "http://127.0.0.1:8974/assets/sora.mp4?condition=missing",
+    "resolvedMediaType": "video/mp4",
+    "byteLength": 5278370
+  },
+  {
+    "case": "sora.mp4 / octet-stream",
+    "url": "http://127.0.0.1:8974/assets/sora.mp4?condition=octet",
+    "resolvedMediaType": "video/mp4",
+    "byteLength": 5278370
+  },
+  {
+    "case": "unsigned.mp4 / correct Content-Type",
+    "url": "http://127.0.0.1:8974/assets/unsigned.mp4?condition=correct",
+    "resolvedMediaType": "video/mp4",
+    "byteLength": 148
+  },
+  {
+    "case": "unsigned.mp4 / octet-stream",
+    "url": "http://127.0.0.1:8974/assets/unsigned.mp4?condition=octet",
+    "resolvedMediaType": "video/mp4",
+    "byteLength": 148
+  },
+  {
+    "case": "car.jpg / correct Content-Type (regression)",
+    "url": "http://127.0.0.1:8974/assets/car.jpg?condition=correct",
+    "resolvedMediaType": "image/jpeg",
+    "byteLength": 580124
+  },
+  {
+    "case": "car.jpg / octet-stream (regression)",
+    "url": "http://127.0.0.1:8974/assets/car.jpg?condition=octet",
+    "resolvedMediaType": "image/jpeg",
+    "byteLength": 580124
+  }
+]

@@ -25,65 +25,41 @@ All images are committed to the repo for team reproducibility. See the size note
 
 ---
 
-## File inventory
+Keep the `private/` subfolder for anything with user data — `.gitignore` already excludes it.
 
-### `trusted/` — manifests from Adobe, OpenAI, and c2pa-rs
+## Validated assets
 
-| File | Source / tool | Expected state |
-| --- | --- | --- |
-| `car.jpg` | Adobe Photoshop — signed by "Adobe C2PA" | `Valid` (Trusted TBD) |
-| `cloudscape.jpeg` | Adobe Content Authenticity | `Valid` (Trusted TBD) |
-| `crater-lake.jpg` | Adobe Lightroom — signed by "Adobe C2PA" | `Valid` (Trusted TBD) |
-| `Firefly-cat.jpg` | Adobe Firefly — signed by "Adobe Firefly C2PA" | `Valid` (Trusted TBD) |
-| `ChatGPTgen.png` | ChatGPT (OpenAI) — signed by "Truepic Lens CLI" | `Valid` (Trusted TBD) |
-| `sora.MP4` | Sora (OpenAI) — signed by "Truepic Lens CLI in Sora" | `Valid`; video — unsupported format in current extension |
-| `earth_apollo17.jpg` | `contentauth/c2pa-rs` test fixture — 180 KB | `Valid` (c2pa-rs self-signed cert) |
-| `manifest-car` | Pre-extracted `manifestStore()` JSON for `car.jpg` | — |
-| `manifest-cloudscape` | Pre-extracted `manifestStore()` JSON for `cloudscape.jpeg` | — |
-| `manifest-crater-lake` | Pre-extracted `manifestStore()` JSON for `crater-lake.jpg` | — |
-| `manifest-Firefly-cat` | Pre-extracted `manifestStore()` JSON for `Firefly-cat.jpg` | — |
-| `manifest-ChatGPTgen` | Pre-extracted `manifestStore()` JSON for `ChatGPTgen.png` | — |
-| `manifest-sora` | Pre-extracted `manifestStore()` JSON for `sora.MP4` | — |
+### test-signed.jpg
+- **Source:** c2pa.org public test files (`adobe-20220124-C.jpg`)
+- **Maps to:** Case `04` — Adobe-signed edited image
+- **Validated by:** Grace (n11907142) — byte-level scanner, 11 May 2026
 
-The `manifest-*` files are plain JSON containing the real output of `reader.manifestStore()` as
-extracted by the Adobe web inspector. They confirm the API output shape documented in
-`C2PA_API_NOTES.md` and can be used as unit-test fixtures without running the WASM.
+Byte-level scan confirmed the following markers present:
 
-### `untrusted/` — self-signed manifests
+| Marker | Position | Meaning |
+|---|---|---|
+| `c2pa` | byte 27116 | C2PA manifest signature |
+| `jumb` | byte 50340 | JUMBF container format |
+| `cred` | byte 61332 | Content credentials |
 
-| File | Notes |
-| --- | --- |
-| `test_ai_verified.jpg` | AI-generated, self-signed C2PA manifest |
-| `test_human_verified.jpg` | Human-captured, self-signed C2PA manifest |
-| `tamperedpixels.jpeg` | Self-signed manifest; name suggests pixel modification — verify runtime state |
+**Extension test result:** `VERIFIED — Signed by Adobe Inc.`
 
-### `no-manifest/` — plain images
-
-| File | Notes |
-| --- | --- |
-| `cloudmountain.jpg` | Plain JPEG, no C2PA data — `fromBlob()` should return `null` |
-
-### `tampered/` — content modified after signing (TODO)
-
-Placeholder folder. Add tampered samples here for `INVALID_OR_CHANGED` testing.
-See `docs/c2patool-guide.md` for how to produce these with `c2patool`.
-
----
-
-## Adding tampered samples
-
-See `docs/c2patool-guide.md` for the signing workflow and how to flip bytes after signing
-to produce a file that triggers `validation_state: "Invalid"`.
-
----
-
-## Size note
-
-Total: ~11 MB (committed intentionally for team reproducibility).
-The bulk is `trusted/sora.MP4` (5.1 MB) and `trusted/ChatGPTgen.png` (2.1 MB).
-
-If this grows past ~20 MB, migrate binaries to Git LFS:
-
+**How to reproduce:**
 ```bash
-git lfs track "test-assets/**/*.jpg" "test-assets/**/*.png" "test-assets/**/*.mp4"
+node test-assets/read-c2pa.mjs
 ```
+
+Expected output:
+
+✅ Found: C2PA manifest at byte 27116
+✅ Found: JUMBF container at byte 50340
+✅ Found: Content credentials at byte 61332
+✅ THIS IMAGE CONTAINS C2PA DATA!
+Signer: Adobe Inc.
+
+**Browser extension test:**
+Serve locally and load in Chrome:
+```bash
+npx http-server test-assets/ -p 8080
+```
+Then open `http://localhost:8080` and run the extension — expect `VERIFIED` result.
