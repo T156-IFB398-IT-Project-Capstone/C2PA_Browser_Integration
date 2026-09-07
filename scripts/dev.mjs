@@ -186,48 +186,65 @@ if (bundleIsFresh()) {
   console.log(`[dev] Test-bench bundle rebuilt in ${((Date.now() - startedAt) / 1000).toFixed(1)}s.`);
 }
 
+// ── Extension build FIRST, before the port is touched ─────────────────────────
+//
+// The extension is the deliverable; the bench server is a convenience. Binding
+// the port first meant a port clash aborted the run before extension/dist/ was
+// ever built, so `npm run dev` left you with an extension that could not be
+// loaded at all ("Could not load manifest", since manifest.json points at
+// dist/service-worker.js) and `npm run build` looked like the only fix.
+// Building first makes a clash cost you the bench and nothing else.
+watcher = spawn(process.execPath, ['build.mjs', '--watch'], {
+  cwd: ROOT,
+  stdio: 'inherit',     // build.mjs already prefixes its output with [build]
+});
+
+watcher.on('error', (err) => {
+  console.error(`[dev] Could not start the extension watcher: ${err.message}`);
+  shutdown(1);
+});
+
+watcher.on('exit', (code) => {
+  if (shuttingDown) return;
+  console.error(`[dev] Extension watcher exited unexpectedly (code ${code}).`);
+  shutdown(code ?? 1);
+});
+
+// build.mjs does a blocking first build before watching, but it is a separate
+// process — wait for the files themselves rather than assuming.
+await waitForExtensionBuild();
+
+// ── Then the bench server ─────────────────────────────────────────────────────
+
 server = createServer();
 
 server.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
-    console.error(
-      `[dev] Port ${PORT} is already in use — another dev server is probably ` +
-      `still running.\n` +
-      `[dev] Find it with:  netstat -ano | findstr ${PORT}   (Windows)\n` +
-      `[dev]                lsof -i :${PORT}                 (macOS/Linux)`,
+    // Not fatal any more. The extension is already built and the watcher is
+    // running, which is what most sessions actually need; whatever already
+    // owns the port is almost certainly another dev server serving the same
+    // bench, so there is nothing to gain by exiting.
+    console.warn(
+      `[dev] Port ${PORT} is already in use, so this instance will not serve ` +
+      `the test bench.\n` +
+      `[dev] The extension watcher IS running — extension/dist/ is built and ` +
+      `stays up to date.\n` +
+      `[dev] http://${HOST}:${PORT} is presumably served by that other ` +
+      `instance. To take it over, stop the other one:\n` +
+      `[dev]   netstat -ano | findstr ${PORT}   (Windows)\n` +
+      `[dev]   lsof -i :${PORT}                 (macOS/Linux)`,
     );
+    server = null;      // nothing to close on shutdown
+    console.log('[dev] Watching the extension. Ctrl-C to stop.');
   } else {
     console.error(`[dev] Server error: ${err.message}`);
+    shutdown(1);
   }
-  shutdown(1);
 });
 
 server.listen(PORT, HOST, () => {
   console.log(`[serve] Test bench on http://${HOST}:${PORT}`);
-
-  // Started only once the port is actually held, so a port clash fails before
-  // a watcher is spawned rather than leaving one behind.
-  watcher = spawn(process.execPath, ['build.mjs', '--watch'], {
-    cwd: ROOT,
-    stdio: 'inherit',   // build.mjs already prefixes its output with [build]
-  });
-
-  watcher.on('error', (err) => {
-    console.error(`[dev] Could not start the extension watcher: ${err.message}`);
-    shutdown(1);
-  });
-
-  watcher.on('exit', (code) => {
-    if (shuttingDown) return;
-    console.error(`[dev] Extension watcher exited unexpectedly (code ${code}).`);
-    shutdown(code ?? 1);
-  });
-
-  // Don't claim to be ready until the extension bundles actually exist.
-  // manifest.json points at dist/service-worker.js, so loading the unpacked
-  // extension before the first build lands fails with "Could not load
-  // manifest" — which looks like a broken repo rather than a race.
-  waitForExtensionBuild();
+  console.log('[dev] Watching the extension and serving the test bench. Ctrl-C to stop.');
 });
 
 async function waitForExtensionBuild() {
@@ -238,8 +255,9 @@ async function waitForExtensionBuild() {
 
   for (let i = 0; i < 600 && !shuttingDown; i++) {          // up to ~60s
     if (outputs.every(f => fs.existsSync(f))) {
-      console.log(`[dev] Ready — load ${path.join(ROOT, 'extension')} unpacked at chrome://extensions`);
-      console.log('[dev] Watching the extension and serving the test bench. Ctrl-C to stop.');
+      // Printed before the server is even attempted, so this stays true even
+      // if the port turns out to be taken.
+      console.log(`[dev] Extension built — load ${path.join(ROOT, 'extension')} unpacked at chrome://extensions`);
       return;
     }
     await new Promise(r => setTimeout(r, 100));
