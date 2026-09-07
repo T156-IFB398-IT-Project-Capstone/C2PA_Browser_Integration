@@ -3,8 +3,10 @@
 // Popup UI — scan trigger, result rendering, live media panel.
 // Verification runs via WASM offscreen document — no service health check needed.
 
-import { MSG, msg }      from '../shared/messages.js';
-import { VERIFY_STATUS } from '../shared/constants.js';
+import { MSG, msg }              from '../shared/messages.js';
+import { STORAGE_KEYS, TEST_BENCH_URLS } from '../shared/constants.js';
+import { statusToLabel }         from '../shared/status-label.js';
+import { renderThumb }           from '../shared/render-thumb.js';
 
 // ---------------------------------------------------------------------------
 // DOM refs
@@ -31,6 +33,11 @@ const liveList  = $('live-list');
 const liveMeta  = $('live-meta');
 const liveEmpty = $('live-empty');
 
+// Test bench link + its right-click menu
+const btnTestBench   = $('btn-test-bench');
+const testBenchMenu  = $('test-bench-menu');
+
+
 // ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
@@ -41,6 +48,8 @@ let _currentTabId = null;
 let _activePanel  = 'scan';
 /** Maximum number of live items rendered in one pass. */
 const LIVE_MAX_DISPLAY = 50;
+/** sourceUrl/src -> item, populated on each render so the inspect modal can look up full detail. */
+const _lastResultsByUrl = new Map();
 
 // ---------------------------------------------------------------------------
 // Tab bar
@@ -186,6 +195,11 @@ function kindIcon(kind) {
   }
 }
 
+// renderThumb (media + Shield badge together) now lives in
+// ../shared/render-thumb.js, imported above — shared with the new detail
+// page (extension/src/detail/) so a result renders identically wherever
+// it's shown.
+
 function renderLiveItem(item) {
   const li = document.createElement('li');
   li.className = 'result-item';
@@ -262,21 +276,32 @@ function renderSummary(summary) {
   const time = new Date(summary.scannedAt).toLocaleTimeString();
   scanMeta.textContent = `${summary.count} item${summary.count === 1 ? '' : 's'} on ${host} — scanned at ${time}`;
 
+  _lastResultsByUrl.clear();
   for (const item of summary.results) {
+    _lastResultsByUrl.set(item.sourceUrl || item.src, item);
     resultsList.appendChild(renderItem(item));
   }
 }
 
 function renderItem(item) {
-  const li = document.createElement('li');
-  li.className = 'result-item';
+  const key = item.sourceUrl || item.src || '';
 
-  const img = document.createElement('img');
-  img.className = 'result-thumb';
-  img.src       = item.src || item.sourceUrl || '';
-  img.alt       = item.alt || '';
-  img.onerror   = () => { img.style.visibility = 'hidden'; };
-  li.appendChild(img);
+  const li = document.createElement('li');
+  li.className = 'result-item result-item--clickable';
+  li.tabIndex = 0;
+  li.setAttribute('role', 'button');
+  li.setAttribute('aria-label', `Inspect detail for ${key}`);
+  li.addEventListener('click', () => openInspectDetail(key));
+  li.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openInspectDetail(key); }
+  });
+
+  const hoverHint = document.createElement('div');
+  hoverHint.className = 'result-hover-hint';
+  hoverHint.textContent = 'Inspect detail →';
+  li.appendChild(hoverHint);
+
+  li.appendChild(renderThumb(item));
 
   const body = document.createElement('div');
   body.className = 'result-body';
@@ -351,27 +376,99 @@ li.appendChild(body);
 return li;
 }
 
-function statusToLabel(status) {
-  switch (status) {
-    case VERIFY_STATUS.VERIFIED_TRUSTED:    return 'Verified — trusted';
-    case VERIFY_STATUS.VERIFIED_TSA:        return 'Verified via TSA';
-    case VERIFY_STATUS.VERIFIED_UNTRUSTED:  return 'Signed — provider not in trust list';
-    case VERIFY_STATUS.SIGNING_EXPIRED:     return 'Expired (No TSA)';
-    case VERIFY_STATUS.CONTENT_TAMPERED:   return 'Content tampered';
-    case VERIFY_STATUS.BROKEN_SIGNATURE:    return 'Broken signature';
-    case VERIFY_STATUS.INVALID_OR_CHANGED:  return 'Invalid or changed';
-    case VERIFY_STATUS.NO_CREDENTIALS:      return 'No Content Credentials';
-    case VERIFY_STATUS.UNSUPPORTED_FORMAT:  return 'Format not supported';
-    case 'error':                           return 'Error';
-    default:                                return status ?? 'Unknown';
-  }
-}
+// statusToLabel now lives in ../shared/status-label.js, imported above.
 
 function escapeHtml(str) {
   const el = document.createElement('div');
   el.textContent = str;
   return el.innerHTML;
 }
+
+// ---------------------------------------------------------------------------
+// Inspect detail — opens as a real browser tab, not inside the popup.
+// ---------------------------------------------------------------------------
+// The popup closes the instant a link/tab opens (same reason the test-bench
+// button can't show an in-popup toast) — so this can't be a modal inside
+// popup.html. Instead: stash the item in chrome.storage.local under a
+// well-known key, then open extension/src/detail/detail.html, which reads
+// it back on load. detail.js renders it with the same renderThumb() /
+// statusToLabel() this file uses, so the badge and status text can't drift.
+
+async function openInspectDetail(key) {
+  const item = _lastResultsByUrl.get(key);
+  if (!item) return;
+  try {
+    await chrome.storage.local.set({ [STORAGE_KEYS.INSPECT_TARGET]: item });
+    await chrome.tabs.create({ url: chrome.runtime.getURL('src/detail/detail.html') });
+  } catch { /* non-fatal — user just won't see a detail tab open */ }
+}
+
+// ---------------------------------------------------------------------------
+// Test bench link — right-click menu + persisted left-click default
+// ---------------------------------------------------------------------------
+// Left-click on #btn-test-bench opens whichever of local/public is currently
+// the default (persisted in chrome.storage.local, defaults to 'local').
+// Right-click shows a menu explaining the difference between the two, and
+// lets the user change which one left-click opens (the ☆/★ button per row —
+// separate from clicking the row itself, which just opens that one now).
+
+async function loadTestBenchDefault() {
+  if (!btnTestBench) return 'local';
+  let key = 'local';
+  try {
+    const stored = await chrome.storage.local.get(STORAGE_KEYS.TEST_BENCH_LINK);
+    key = stored[STORAGE_KEYS.TEST_BENCH_LINK] ?? 'local';
+  } catch { /* non-fatal — fall back to local */ }
+  applyTestBenchDefault(key);
+  return key;
+}
+
+function applyTestBenchDefault(key) {
+  btnTestBench.href = TEST_BENCH_URLS[key] ?? TEST_BENCH_URLS.local;
+  testBenchMenu?.querySelectorAll('.context-menu-default').forEach(btn => {
+    const isDefault = btn.dataset.key === key;
+    btn.textContent = isDefault ? '★' : '☆';
+    btn.classList.toggle('is-default', isDefault);
+  });
+}
+
+function setupTestBenchMenu() {
+  if (!btnTestBench || !testBenchMenu) return;
+
+  btnTestBench.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    testBenchMenu.classList.remove('hidden');
+  });
+
+  testBenchMenu.addEventListener('click', async (e) => {
+    const defaultBtn = e.target.closest('.context-menu-default');
+    if (defaultBtn) {
+      const key = defaultBtn.dataset.key;
+      applyTestBenchDefault(key);
+      try { await chrome.storage.local.set({ [STORAGE_KEYS.TEST_BENCH_LINK]: key }); } catch { /* non-fatal */ }
+      return; // don't navigate, don't close the menu — just updates the star
+    }
+
+    const openBtn = e.target.closest('.context-menu-open');
+    if (openBtn) {
+      window.open(openBtn.dataset.url, '_blank', 'noopener');
+      testBenchMenu.classList.add('hidden');
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!testBenchMenu.classList.contains('hidden') && e.target !== btnTestBench && !testBenchMenu.contains(e.target)) {
+      testBenchMenu.classList.add('hidden');
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') testBenchMenu.classList.add('hidden');
+  });
+}
+
+setupTestBenchMenu();
+loadTestBenchDefault();
 
 // ---------------------------------------------------------------------------
 // Initialisation

@@ -150,15 +150,159 @@ const initialTestCases = [
     desc: 'Standard image without any embedded C2PA provenance box.',
     timestamp: 'N/A',
     tsaValidated: false
+// ---------------------------------------------------------------------------
+// Live verification — real bytes through the real extension verifier.
+// window.C2PAVerify / window.SUPPORTED_MIME_TYPES are set by verify-bundle.js
+// (built from verify-entry.mjs, see build.mjs), which imports directly from
+// extension/src/offscreen/offscreen.js — not a reimplementation.
+// ---------------------------------------------------------------------------
+
+// Same 5-branch extension-based MIME fallback as service-worker.js's
+// fetchAsBytes(), adapted for a filename (no query string, so `$` not `(\?|$)`).
+function guessMimeType(providedType, filename) {
+  if (window.SUPPORTED_MIME_TYPES.includes(providedType)) return providedType;
+  if (/\.jpe?g$/i.test(filename)) return 'image/jpeg';
+  if (/\.png$/i.test(filename))   return 'image/png';
+  if (/\.gif$/i.test(filename))   return 'image/gif';
+  if (/\.webp$/i.test(filename))  return 'image/webp';
+  if (/\.mp4$/i.test(filename))   return 'video/mp4';
+  return providedType;
+}
+
+// Shared by the on-load asset-verification loop and the upload sandbox, so
+// both stay behind one real "supported or not" check rather than drifting.
+async function verifyBytes(bytes, filename, providedType = '') {
+  const mimeType = guessMimeType(providedType, filename);
+  if (!window.SUPPORTED_MIME_TYPES.includes(mimeType)) {
+    return { status: VERIFY_STATUS.UNSUPPORTED_FORMAT, manifest: null, error: null };
   }
+  return window.C2PAVerify({ bytes, mimeType });
+}
+
+// PASS/FAIL-with-reason phrasing (matches the old mock's style) built
+// entirely from real fields — no fabricated claim, unlike the original.
+function checksumFor(status, manifest, error) {
+  if (error) return `FAIL (${error.message})`;
+  if (!manifest) return getStatusLabel(status); // no_credentials / unsupported_format — nothing to check
+  switch (status) {
+    case VERIFY_STATUS.CONTENT_TAMPERED:   return 'FAIL (data hash mismatch)';
+    case VERIFY_STATUS.BROKEN_SIGNATURE:   return 'FAIL (claim signature corrupt)';
+    case VERIFY_STATUS.INVALID_OR_CHANGED: return 'FAIL (manifest invalid)';
+  }
+  if (manifest.tsa_info?.validated) return 'PASS (TSA timestamp validated)';
+  if (status === VERIFY_STATUS.VERIFIED_TRUSTED)   return 'PASS (signature valid, trusted signer)';
+  if (status === VERIFY_STATUS.VERIFIED_UNTRUSTED) return 'PASS (signature valid, untrusted signer)';
+  if (status === VERIFY_STATUS.SIGNING_EXPIRED)    return 'PASS (signature valid, certificate expired)';
+  return getStatusLabel(status);
+}
+
+// Builds the verification-derived subset of a card object from a real
+// { status, manifest, error } response — used for both the on-load assets
+// and uploaded files, so the two card shapes can never drift apart.
+function fieldsFromResult({ status, manifest, error }) {
+  return {
+    status,
+    statusLabel: getStatusLabel(status),
+    creator: manifest?.creator ?? 'N/A',
+    signer: manifest?.signer?.common_name ?? 'Unsigned / No Manifest',
+    aiDisclosure: manifest?.ai_disclosure ?? false,
+    // Real extractManifest() output has no SKI field at all — never
+    // fabricate one. Real SKI extraction is separate, not-yet-built work.
+    ski: 'N/A',
+    timestamp: manifest?.tsa_info?.time ?? manifest?.signer?.time ?? 'N/A',
+    validationStatus: status,
+    checksum: checksumFor(status, manifest, error),
+    techId: error ? 'verify() threw' : (manifest ? 'reader.manifestStore() -> populated' : 'fromBlob() -> null'),
+    rawManifest: manifest,
+  };
+}
+
+// Initial test cases — media reference only. Verification-derived fields
+// (status/creator/signer/etc.) are populated live on load, see
+// verifyInitialCases() below — not hardcoded, per the Sprint 2/3 tracker
+// row this closes ("wire video results through the result model on the
+// test bench... connected to the real verification pipeline").
+const initialTestCases = [
+  { id: 'case-verified-tsa-camera',   title: 'Camera Capture (Truepic TSA)',      mediaType: 'image', src: 'assets/verified-trusted.jpg' },
+  { id: 'case-sample-video',          title: 'Zoetrope Animation (MP4 Video)',    mediaType: 'video', src: 'assets/sample-video.mp4' },
+  { id: 'case-verified-tsa-landscape', title: 'Landscape Photo (Truepic TSA)',    mediaType: 'image', src: 'assets/verified-tsa.jpg' },
+  { id: 'case-invalid-earth',         title: 'Earth Image',                       mediaType: 'image', src: 'assets/untrusted-signer.jpg' },
+  { id: 'case-untrusted-fish',        title: 'Underwater Fish',                   mediaType: 'image', src: 'assets/expired-cert.jpg' },
+  { id: 'case-content-tampered',      title: 'Tampered Pixels',                   mediaType: 'image', src: 'assets/tampered-pixels.jpeg' },
+  { id: 'case-broken-signature',      title: 'Corrupt Signature',                 mediaType: 'image', src: 'assets/broken-signature.jpg' },
+  { id: 'case-invalid-changed',       title: 'URI Mismatch',                      mediaType: 'image', src: 'assets/invalid-generic.jpg' },
+  { id: 'case-no-credentials',        title: 'Plain Photo',                       mediaType: 'image', src: 'assets/no-credentials.jpg' },
+  { id: 'case-unsupported-format',    title: 'Plain Text File',                   mediaType: 'image', src: 'assets/unsupported-file.txt' },
 ];
 
-let testCases = [...initialTestCases];
+let testCases = [];
 
-document.addEventListener('DOMContentLoaded', () => {
+// Fetches each reference asset (same-origin static files) and runs it
+// through the real verifier, replacing the old hand-authored status/creator/
+// signer/etc. fields. Titles above are deliberately outcome-neutral now
+// (e.g. "Earth Image" not "Earth Image (Invalid or Changed)") since the
+// real result is what determines that, not a label written in advance.
+async function verifyInitialCases() {
+  const verified = await Promise.all(initialTestCases.map(async (ref) => {
+    try {
+      const res = await fetch(ref.src);
+      const buf = await res.arrayBuffer();
+      const result = await verifyBytes(new Uint8Array(buf), ref.src);
+      return { ...ref, ...fieldsFromResult(result), desc: `${ref.src} — verified live on load.` };
+    } catch (err) {
+      return { ...ref, ...fieldsFromResult({ status: 'error', manifest: null, error: { message: err.message } }), desc: `${ref.src} — fetch/verify failed.` };
+    }
+  }));
+  testCases = verified;
   renderStats();
   renderGrid();
+}
+
+// This page is reachable at more than one address (a local dev server and
+// the real hosted deployment) — see the extension popup's test-bench
+// right-click menu. Explains which one you're on, every time, so it's not
+// assumed anyone already knows. Dismissible per-browser via localStorage,
+// not shown again once dismissed on that address (each hostname's dismissal
+// is independent — localStorage is origin-scoped).
+function initSiteBanner() {
+  const DISMISS_KEY = 'c2pa-testbench-banner-dismissed';
+  try {
+    if (localStorage.getItem(DISMISS_KEY)) return;
+  } catch { /* localStorage unavailable — just show the banner every time */ }
+
+  const isLocal = /^(127\.0\.0\.1|localhost)$/.test(location.hostname);
+  const banner = document.createElement('div');
+  banner.className = 'site-banner';
+
+  const text = document.createElement('span');
+  text.innerHTML = isLocal
+    ? '<strong>Local dev instance.</strong> You\'re viewing 127.0.0.1 — a local dev server. May include unreleased changes; only reachable while it\'s actually running on this machine.'
+    : '<strong>Public test bench.</strong> You\'re viewing c2patest.pages.dev — the real hosted deployment, reachable by anyone. May not reflect local changes until someone deploys them.';
+  banner.appendChild(text);
+
+  const dismiss = document.createElement('button');
+  dismiss.className = 'site-banner-dismiss';
+  dismiss.setAttribute('aria-label', 'Dismiss');
+  dismiss.textContent = '×';
+  dismiss.addEventListener('click', () => {
+    banner.remove();
+    try { localStorage.setItem(DISMISS_KEY, '1'); } catch { /* non-fatal */ }
+  });
+  banner.appendChild(dismiss);
+
+  document.body.insertBefore(banner, document.body.firstChild);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  initSiteBanner();
+
+  // Loading state — cards populate once live verification completes
+  // (WASM cold-start on the first call adds real, if brief, latency).
+  const grid = document.getElementById('media-grid');
+  if (grid) grid.innerHTML = '<div class="empty-state"><h3>Verifying reference assets…</h3></div>';
+
   setupEventListeners();
+  verifyInitialCases();
 });
 
 function renderStats() {
@@ -226,9 +370,18 @@ function renderGrid() {
       item.signer && item.signer !== 'Unsigned / No Manifest' ? `signer: ${item.signer}` : null
     ].filter(Boolean).join(' · ');
 
+    // Same badge-selection logic as the extension popup (shared/badge-map.js,
+    // exposed via verify-entry.mjs) — no badge for tampered/broken/invalid/
+    // no-credentials/unsupported results, same as the popup.
+    const badgeState = window.pickBadgeState ? window.pickBadgeState(item) : null;
+    const badgeHtml = badgeState
+      ? `<img class="shield-badge" src="../extension/src/popup/badges/${window.BADGE_FILES[badgeState].file}" alt="${window.BADGE_FILES[badgeState].alt}" title="${window.BADGE_FILES[badgeState].alt}">`
+      : '';
+
     card.innerHTML = `
       <div class="card-media-wrapper">
         ${mediaHtml}
+        ${badgeHtml}
       </div>
       <div class="card-body">
         <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -302,10 +455,25 @@ function setupEventListeners() {
   });
 }
 
-function handleUploadedFiles(files) {
-  Array.from(files).forEach(file => {
-    const isVideo = file.type.startsWith('video/') || file.name.endsWith('.mp4') || file.name.endsWith('.mov') || file.name.endsWith('.webm');
-    const mediaUrl = URL.createObjectURL(file);
+// Real verification for whatever gets dropped/browsed in — signed or not,
+// image or video, valid or garbage. No outcome is assumed or fabricated;
+// see verifyBytes()/fieldsFromResult() above, which this shares with the
+// on-load reference-asset path so the two can't drift apart.
+async function handleUploadedFiles(files) {
+  for (const file of Array.from(files)) {
+    const isVideo = file.type.startsWith('video/') || /\.(mp4|mov|webm)$/i.test(file.name);
+    const mediaUrl = URL.createObjectURL(file); // preview only — bytes for verification are read separately below
+
+    const id = 'custom-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
+    const baseItem = { id, title: file.name, mediaType: isVideo ? 'video' : 'image', src: mediaUrl };
+
+    let result;
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      result = await verifyBytes(bytes, file.name, file.type);
+    } catch (err) {
+      result = { status: 'error', manifest: null, error: { message: err.message } };
+    }
 
     const newItem = {
       id: 'custom-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
@@ -321,13 +489,15 @@ function handleUploadedFiles(files) {
       desc: `File: ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB).`,
       timestamp: new Date(file.lastModified).toISOString(),
       tsaValidated: true
+      ...baseItem,
+      ...fieldsFromResult(result),
+      desc: `File size: ${(file.size / (1024 * 1024)).toFixed(2)} MB.`,
     };
 
     testCases.unshift(newItem);
-  });
-
-  renderStats();
-  renderGrid();
+    renderStats();
+    renderGrid();
+  }
 }
 
 function openInspectModal(id) {

@@ -59,6 +59,34 @@ body {
   padding: 0 24px;
 }
 
+/* Explains which address (local dev vs public) this page is being viewed
+   at — see app.js initSiteBanner(). Full-width, sits above .container. */
+.site-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 24px;
+  background: var(--bg-input);
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+.site-banner strong { color: var(--text-primary); }
+
+.site-banner-dismiss {
+  margin-left: auto;
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+.site-banner-dismiss:hover { color: var(--text-primary); }
+
 /* Header */
 header {
   padding: 40px 0 24px 0;
@@ -242,6 +270,20 @@ header {
 
 .test-card:hover .card-media-wrapper img {
   transform: scale(1.03);
+}
+
+/* Shield verification badge — same asset set and selection logic as the
+   extension popup (shared/badge-map.js), no badge for results that
+   aren't cryptographically intact. See app.js renderGrid(). */
+.shield-badge {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--bg-card);
+  box-shadow: 0 0 0 2px var(--bg-card), 0 2px 6px rgba(0, 0, 0, 0.4);
 }
 
 .media-badge {
