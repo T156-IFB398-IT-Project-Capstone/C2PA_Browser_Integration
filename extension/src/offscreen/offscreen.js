@@ -83,6 +83,7 @@ async function verify({ bytes, mimeType }) {
     manifest: extractManifest(store),
     error:    null,
   };
+}
 
 // ── Helpers & Status Determination ───────────────────────────────────────────
 
@@ -173,6 +174,7 @@ function extractManifest(store) {
 
   const creator = extractCreator(m);
   const ai_disclosure = hasAiAssertion(m.assertions);
+  const contentCategory = classifyContent(m.assertions);
   const signer        = m.signature_info?.common_name
     ? {
         common_name: m.signature_info.common_name,
@@ -198,7 +200,7 @@ function extractManifest(store) {
     expired: isCertExpired,
   };
 
-  return { creator, ai_disclosure, signer, tsa_info, validity_window };
+  return { creator, ai_disclosure, contentCategory, signer, tsa_info, validity_window };
 }
 
 // Resolve creator string: author name > tool name > raw claim generator
@@ -341,4 +343,61 @@ function hasAiAssertion(assertions) {
   }
 
   return false;
+}
+
+// ── Content provenance classification ────────────────────────────────────────
+//
+// A separate axis from VERIFY_STATUS / determineStatus() above. That function
+// answers "can we trust this manifest's signature chain"; this one answers
+// "what does the manifest's own action history say happened to the content."
+// The two are orthogonal — a trusted signature says nothing about whether the
+// signed content is AI-generated. Callers MUST gate on
+// VERIFY_STATUS.VERIFIED_TRUSTED before showing this value to a user: an
+// untrusted or tampered manifest's account of its own history can't be relied
+// on either. See content-script.js for the gating logic and badge mapping.
+//
+// IPTC digitalSourceType vocabulary (cv.iptc.org/newscodes/digitalsourcetype):
+//   trainedAlgorithmicMedia / algorithmicMedia          -> fully synthetic
+//   compositeWithTrainedAlgorithmicMedia                -> AI used on real content
+//   anything else (digitalCapture, negativeFilm, ...)   -> not AI-sourced
+//
+// A capture with only creation/capture actions is "authentic"; one with
+// additional non-AI editing actions (crop, colour, filter, etc.) is "edited".
+
+const AI_GENERATED_SOURCE_TYPES = ['trainedAlgorithmicMedia', 'algorithmicMedia'];
+const AI_EDITED_SOURCE_TYPES    = ['compositeWithTrainedAlgorithmicMedia'];
+
+// Actions that represent creation/capture/handling, not an edit of existing content.
+const NON_EDIT_ACTIONS = new Set(['c2pa.created', 'c2pa.opened', 'c2pa.published']);
+
+function collectActions(assertions) {
+  if (!Array.isArray(assertions)) return [];
+  const actions = [];
+  for (const assertion of assertions) {
+    if (!/^c2pa\.actions(\.v\d+)?$/.test(assertion?.label ?? '')) continue;
+    if (Array.isArray(assertion?.data?.actions)) actions.push(...assertion.data.actions);
+  }
+  return actions;
+}
+
+/**
+ * Classify content provenance into one of four buckets, or null if the
+ * manifest carries no action history to classify from.
+ * @returns {'authentic'|'edited'|'ai_edited'|'ai_generated'|null}
+ */
+export function classifyContent(assertions) {
+  const actions = collectActions(assertions);
+  if (actions.length === 0) return null;
+
+  const sourceTypes = actions.map(a => a?.digitalSourceType ?? '');
+
+  if (sourceTypes.some(dst => AI_GENERATED_SOURCE_TYPES.some(t => dst.includes(t)))) {
+    return 'ai_generated';
+  }
+  if (sourceTypes.some(dst => AI_EDITED_SOURCE_TYPES.some(t => dst.includes(t)))) {
+    return 'ai_edited';
+  }
+
+  const hasEditAction = actions.some(a => a?.action && !NON_EDIT_ACTIONS.has(a.action));
+  return hasEditAction ? 'edited' : 'authentic';
 }

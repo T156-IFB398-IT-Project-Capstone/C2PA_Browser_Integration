@@ -1,0 +1,14 @@
+<!--
+  PLACEHOLDER asset. Shown for any manifest we can't fully vouch for
+  (verified_untrusted, verified_tsa, signing_expired, content_tampered,
+  broken_signature, invalid_or_changed) — i.e. everything except
+  VERIFY_STATUS.VERIFIED_TRUSTED. Deliberately grey/neutral, not on the
+  red-green spectrum of the other four badges: this isn't a 5th trust
+  level, it's "click for detail" (see popup.js for the breakdown).
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 111" width="200" height="222" role="img" aria-label="Not fully verified — see details">
+  <title>Not fully verified — see details</title>
+  <path d="M50 4 L94 20 V57 C94 82 74 99 50 107 C26 99 6 82 6 57 V20 L50 4 Z" fill="#8a8f98"/>
+  <path d="M50 4 L94 20 V57 C94 82 74 99 50 107 C26 99 6 82 6 57 V20 L50 4 Z" fill="none" stroke="#ffffff" stroke-width="5" stroke-opacity="0.9" transform="translate(50 55.5) scale(0.86) translate(-50 -55.5)"/>
+  <text x="50" y="72" text-anchor="middle" fill="#ffffff" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="46">?</text>
+</svg>

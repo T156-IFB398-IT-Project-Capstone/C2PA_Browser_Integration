@@ -22,7 +22,79 @@
   const SUPPORTED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.mp4'];
   const MSG_MEDIA_DETECTED   = 'c2pa/media_detected';
   const MSG_SCAN_ACTIVE_TAB  = 'c2pa/scan_active_tab';
+  const MSG_SCAN_COMPLETE    = 'c2pa/scan_complete';
   const MIN_REANNOUNCE_MS    = 2_000;  // rate-limit for realtime tracking messages
+
+  // Badge selection runs on TWO axes:
+  //
+  //  1. Trust (VERIFY_STATUS, from the signature/cert chain).
+  //  2. Content category (manifest.contentCategory, from action assertions —
+  //     see offscreen.js classifyContent() for why this is independent of
+  //     trust and can't be conflated with it).
+  //
+  // They combine asymmetrically, by design:
+  //
+  //  - ai_generated ALWAYS wins, at any trust tier down to and including
+  //    content_tampered / broken_signature — as long as a manifest exists
+  //    to read the disclosure from at all. A claim of AI origin is safer to
+  //    over-show than to suppress behind a signature problem unrelated to
+  //    the disclosure itself; CLAUDE.md constraint #4 already treats
+  //    under-disclosure as the worse failure mode.
+  //  - Every OTHER content category (authentic / edited / ai_edited) still
+  //    requires a fully trusted signature (verified_trusted) before it's
+  //    shown — a positive "authentic" claim needs the strongest evidence,
+  //    not the weakest. Anything with a manifest but not trusted enough (or
+  //    trusted with no readable action history) falls back to a single
+  //    neutral "unverifiable" badge — detail lives in the popup, not
+  //    guessed at here.
+  //  - no_credentials / unsupported_format / error get no badge at all.
+  //
+  // Filenames match the values above; swap files in place to restyle,
+  // no code change needed.
+  const CONTENT_LOGO_FILES = {
+    authentic:     'authentic.png',
+    edited:        'edited.png',
+    ai_edited:     'ai-edited.png',
+    ai_generated:  'ai-generated.png',
+  };
+  const UNVERIFIABLE_LOGO_FILE = 'unverifiable.svg';
+
+  // Manifest present, but not trusted enough to classify by content — see above.
+  const UNVERIFIABLE_STATUSES = new Set([
+    'verified_tsa', 'verified_untrusted', 'signing_expired',
+    'content_tampered', 'broken_signature', 'invalid_or_changed',
+  ]);
+
+  const CONTENT_LOGO_URLS = Object.fromEntries(
+    Object.entries(CONTENT_LOGO_FILES).map(
+      ([category, file]) => [category, chrome.runtime.getURL(`icons/badges/${file}`)]
+    )
+  );
+  const UNVERIFIABLE_LOGO_URL = chrome.runtime.getURL(`icons/badges/${UNVERIFIABLE_LOGO_FILE}`);
+
+  /**
+   * Pick { key, url } for a scan result, or null if nothing should show.
+   * key is used both as the badge's dedupe/update marker and as its alt text.
+   */
+  function pickBadge(res) {
+    const category = res.manifest?.contentCategory; // undefined whenever manifest is null
+
+    // AI-generated disclosure bypasses the trust gate — see comment above.
+    if (category === 'ai_generated') {
+      return { key: 'ai_generated', url: CONTENT_LOGO_URLS.ai_generated };
+    }
+
+    if (res.status === 'verified_trusted') {
+      const url = CONTENT_LOGO_URLS[category];
+      if (url) return { key: category, url };
+      // Trusted signature, but no readable action history to classify from.
+      return { key: 'unverifiable', url: UNVERIFIABLE_LOGO_URL };
+    }
+    if (UNVERIFIABLE_STATUSES.has(res.status)) {
+      return { key: 'unverifiable', url: UNVERIFIABLE_LOGO_URL };
+    }
+    return null; // no_credentials, unsupported_format, error
+  }
 
   // -------------------------------------------------------------------------
   // URL helpers
@@ -196,8 +268,75 @@
       sendResponse({ ok: true, media, pageUrl: window.location.href });
       return true;
     }
+
+    if (message?.type === MSG_SCAN_COMPLETE) {
+      // Background finished verifying — annotate any <img> whose result
+      // resolves to a badge (see pickBadge: trust-gated content category,
+      // or "unverifiable", or nothing).
+      const results = message.payload?.summary?.results ?? [];
+      for (const res of results) {
+        const badge = pickBadge(res);
+        if (!badge) continue;
+        const img = findImageForUrl(res.sourceUrl);
+        if (img) addCornerBadge(img, badge.key, badge.url);
+      }
+      return false;
+    }
+
     return false;
   });
+
+  // -------------------------------------------------------------------------
+  // Corner badge — one icon per pickBadge() result (see CONTENT_LOGO_FILES).
+  // -------------------------------------------------------------------------
+
+  /** Find the on-page <img> whose resolved src matches a verified URL. */
+  function findImageForUrl(url) {
+    if (!url) return null;
+    for (const img of document.querySelectorAll('img')) {
+      if ((img.currentSrc || img.src) === url) return img;
+    }
+    return null;
+  }
+
+  /**
+   * Wrap `imgEl` in a positioned span and pin a small status badge to its
+   * bottom-right corner, without disturbing the surrounding page layout.
+   * Re-scanning with a different status swaps the existing badge in place.
+   */
+  function addCornerBadge(imgEl, status, logoUrl, size = 28, margin = 4) {
+    if (!imgEl) return;
+
+    if (imgEl.dataset.c2paBadge === status) return; // already showing this status
+
+    let wrapper = imgEl.parentElement;
+    let badge = wrapper?.dataset?.c2paBadgeWrapper === '1'
+      ? wrapper.querySelector(':scope > img[data-c2pa-badge-icon]')
+      : null;
+
+    if (!wrapper || wrapper.dataset.c2paBadgeWrapper !== '1') {
+      wrapper = document.createElement('span');
+      wrapper.dataset.c2paBadgeWrapper = '1';
+      wrapper.style.cssText = 'display:inline-block;position:relative;line-height:0;';
+      imgEl.parentNode.insertBefore(wrapper, imgEl);
+      wrapper.appendChild(imgEl);
+    }
+
+    if (!badge) {
+      badge = document.createElement('img');
+      badge.dataset.c2paBadgeIcon = '1';
+      badge.style.cssText =
+        `position:absolute;right:${margin}px;bottom:${margin}px;` +
+        `width:${size}px;height:${size}px;object-fit:contain;` +
+        `pointer-events:none;z-index:2147483647;`;
+      wrapper.appendChild(badge);
+    }
+
+    badge.src = logoUrl;
+    badge.alt = `C2PA status: ${status}`;
+
+    imgEl.dataset.c2paBadge = status;
+  }
 
   // -------------------------------------------------------------------------
   // Passive announcer — sends ALL media (images + video + audio + blobs) to

@@ -217,6 +217,15 @@ async function scanActiveTab() {
   };
 
   await chrome.storage.local.set({ [STORAGE_KEYS.LAST_SCAN]: summary });
+
+  // Tell the content script which assets carry C2PA credentials so it can
+  // annotate them in-page. Best-effort: the tab may have navigated away.
+  try {
+    await chrome.tabs.sendMessage(tab.id, msg(MSG.SCAN_COMPLETE, { summary }));
+  } catch (err) {
+    console.debug('[C2PA background] could not notify tab of scan completion:', err?.message ?? err);
+  }
+
   return summary;
 }
 
