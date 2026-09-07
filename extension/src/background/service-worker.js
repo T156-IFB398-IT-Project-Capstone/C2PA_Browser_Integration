@@ -296,6 +296,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           return;
         }
 
+        // Relay straight through to the active tab's content script, which
+        // owns the actual DOM lookup + scrollIntoView.
+        case MSG.SCROLL_TO_MEDIA: {
+          const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+          if (!tab?.id) { sendResponse({ ok: false, error: 'No active tab.' }); return; }
+          try {
+            const contentResponse = await chrome.tabs.sendMessage(tab.id, msg(MSG.SCROLL_TO_MEDIA, message.payload));
+            sendResponse({ ok: true, found: contentResponse?.found ?? null });
+          } catch (err) {
+            sendResponse({ ok: false, error: 'Content script not ready — try reloading the page.' });
+          }
+          return;
+        }
+
         // ── Cache / queue management (Sprint 4 prep) ─────────────────────── //
 
         case MSG.CLEAR_CACHE: {

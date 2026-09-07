@@ -23,6 +23,7 @@
   const MSG_MEDIA_DETECTED   = 'c2pa/media_detected';
   const MSG_SCAN_ACTIVE_TAB  = 'c2pa/scan_active_tab';
   const MSG_SCAN_COMPLETE    = 'c2pa/scan_complete';
+  const MSG_SCROLL_TO_MEDIA  = 'c2pa/scroll_to_media';
   const MIN_REANNOUNCE_MS    = 2_000;  // rate-limit for realtime tracking messages
 
   // Badge selection runs on TWO axes:
@@ -149,7 +150,9 @@
       found.push({ src: rawUrl, kind, ...meta });
     }
 
-    for (const el of document.querySelectorAll('img')) {
+    // :not([data-c2pa-badge-icon]) — exclude our own injected corner badges
+    // (see addCornerBadge()) so they never appear as "media on the page".
+    for (const el of document.querySelectorAll('img:not([data-c2pa-badge-icon])')) {
       const src = el.currentSrc || el.src;
       add(src, 'image', {
         alt:    el.alt           || '',
@@ -206,7 +209,9 @@
 
     // --- Images -----------------------------------------------------------
 
-    for (const el of document.querySelectorAll('img')) {
+    // :not([data-c2pa-badge-icon]) — exclude our own injected corner badges
+    // (see addCornerBadge()) so they never appear as "media on the page".
+    for (const el of document.querySelectorAll('img:not([data-c2pa-badge-icon])')) {
       const src = el.currentSrc || el.src;
       if (src) push(src, 'image', {
         alt:    el.alt           || '',
@@ -283,20 +288,118 @@
       return false;
     }
 
+    if (message?.type === MSG_SCROLL_TO_MEDIA) {
+      // Popup's Live Media list asked to jump to a specific element.
+      const { url, kind } = message.payload ?? {};
+      const el = findElementForMediaUrl(url, kind);
+      console.debug('[C2PA content] scroll-to-media', { url, kind, found: !!el });
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        flashHighlight(el);
+      } else {
+        console.warn('[C2PA content] scroll-to-media: no matching element for', url);
+      }
+      sendResponse({ ok: true, found: !!el });
+      return false;
+    }
+
     return false;
   });
+
+  // -------------------------------------------------------------------------
+  // Live-media scroll-to — locate the on-page element behind a registry
+  // entry (which may be any kind discoverAllMedia() tracks, not just <img>)
+  // and briefly flash it so it's easy to spot once scrolled into view.
+  // -------------------------------------------------------------------------
+
+  function findElementForMediaUrl(url, kind) {
+    if (!url) return null;
+
+    if (kind === 'video') {
+      for (const el of document.querySelectorAll('video')) {
+        if ((el.currentSrc || el.src) === url) return el;
+      }
+      for (const el of document.querySelectorAll('video > source[src]')) {
+        if (el.src === url) return el.closest('video') ?? el;
+      }
+      return null;
+    }
+
+    if (kind === 'video-poster') {
+      for (const el of document.querySelectorAll('video[poster]')) {
+        if (el.poster === url) return el;
+      }
+      return null;
+    }
+
+    if (kind === 'audio') {
+      for (const el of document.querySelectorAll('audio')) {
+        if ((el.currentSrc || el.src) === url) return el;
+      }
+      for (const el of document.querySelectorAll('audio > source[src]')) {
+        if (el.src === url) return el.closest('audio') ?? el;
+      }
+      return null;
+    }
+
+    // image / gif / default
+    return findImageForUrl(url);
+  }
+
+  /** Briefly outline `el` (its own inline style, reverted after a beat) so a scrolled-to element is easy to spot. */
+  function flashHighlight(el, durationMs = 1500) {
+    const prev = { outline: el.style.outline, outlineOffset: el.style.outlineOffset, transition: el.style.transition };
+    el.style.transition = 'outline-color 0.2s ease';
+    el.style.outline = '3px solid #4da3ff';
+    el.style.outlineOffset = '2px';
+    setTimeout(() => {
+      el.style.outline = prev.outline;
+      el.style.outlineOffset = prev.outlineOffset;
+      el.style.transition = prev.transition;
+    }, durationMs);
+  }
 
   // -------------------------------------------------------------------------
   // Corner badge — one icon per pickBadge() result (see CONTENT_LOGO_FILES).
   // -------------------------------------------------------------------------
 
-  /** Find the on-page <img> whose resolved src matches a verified URL. */
+  /**
+   * Find the on-page <img> whose resolved src, OR any srcset candidate
+   * (its own, or its enclosing <picture>'s <source> candidates), matches
+   * `url`. Needed because discoverAllMedia()/discoverMedia() push every
+   * srcset candidate as its own entry, but only ONE of them is ever the
+   * element's actual currentSrc — everything else previously matched
+   * nothing and silently failed to scroll/badge.
+   */
   function findImageForUrl(url) {
     if (!url) return null;
+
     for (const img of document.querySelectorAll('img')) {
       if ((img.currentSrc || img.src) === url) return img;
+      if (srcsetMatches(img.getAttribute('srcset'), url)) return img;
     }
+
+    for (const source of document.querySelectorAll('picture source[srcset]')) {
+      if (srcsetMatches(source.getAttribute('srcset'), url)) {
+        const img = source.closest('picture')?.querySelector('img');
+        if (img) return img;
+      }
+    }
+
     return null;
+  }
+
+  /** True if any candidate URL in a srcset attribute resolves to `url`. */
+  function srcsetMatches(srcset, url) {
+    if (!srcset) return false;
+    for (const raw of parseSrcset(srcset)) {
+      try {
+        if (new URL(raw, window.location.href).href === url) return true;
+      } catch {
+        if (raw === url) return true;
+      }
+    }
+    return false;
   }
 
   // -------------------------------------------------------------------------
