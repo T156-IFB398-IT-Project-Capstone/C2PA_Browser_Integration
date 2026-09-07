@@ -644,9 +644,18 @@
       // lazy-load placeholder styles) and bleed into whatever we inject here.
       // Inline styles beat any non-!important external rule, so pin every
       // property a host page is likely to set, not just the ones we need.
+      // A standalone image document (navigating straight to a .jpg/.png) has
+      // the <img> as a direct child of <body>, centred by the UA stylesheet
+      // with `display:block; margin:auto`. Wrapping it in an inline-block
+      // span throws that away and the image snaps to the left edge, so the
+      // wrapper has to take the centring over in that case.
+      const isImageDoc = document.contentType?.startsWith('image/');
       wrapper.style.cssText =
-        'all:initial;display:inline-block;position:relative;line-height:0;' +
-        'background:transparent;border:none;box-shadow:none;padding:0;margin:0;';
+        'all:initial;position:relative;line-height:0;' +
+        'background:transparent;border:none;box-shadow:none;padding:0;' +
+        (isImageDoc
+          ? 'display:block;margin:auto;width:fit-content;'
+          : 'display:inline-block;margin:0;');
       imgEl.parentNode.insertBefore(wrapper, imgEl);
       wrapper.appendChild(imgEl);
     }

@@ -370,7 +370,6 @@ a.icon-btn {
   border-color: var(--accent);
 }
 
-.result-thumb {
 .result-thumb-wrap {
   position: relative;
   width: 48px; height: 48px;
