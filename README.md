@@ -12,20 +12,34 @@ Phase 2 (Semester 2): SPIKE-001 confirmed `c2pa-web` parses and validates MP4's 
 
 ## Getting started
 
-A fresh clone needs nothing beyond these two commands — no `.env`, no API keys,
-no external service, no separate server checkout.
+No `.env`, no API keys, no external service, no separate server checkout.
 
 ```bash
 git clone <repo-url>
 cd C2PA_Browser_Integration
-npm install     # installs deps, then builds the test-bench bundle (postinstall)
-npm run dev     # extension watcher + test-bench server, in one terminal
+
+npm install     # 1. deps, then builds the test-bench bundle (postinstall)
+npm run build   # 2. builds extension/dist/ — required before Load unpacked
+npm run dev     # 3. watcher + test bench on http://127.0.0.1:8976
 ```
 
-Requires Node 18 or newer (`node --version`) — `npm run dev` uses only Node
+Requires Node 18 or newer (`node --version`). Everything here uses Node
 built-ins, so there is nothing else to install.
 
-`npm run dev` runs three things together and stops them together on Ctrl-C:
+**Why step 2 is listed separately.** `npm install` does *not* build
+`extension/dist/`, and `manifest.json` points at `dist/service-worker.js` — so
+loading `extension/` unpacked before anything has built it fails with
+"Could not load manifest". `npm run dev` does build it, but `npm run build` is
+the one step that only does that, finishes, and exits, which makes it easy to
+confirm before you touch `chrome://extensions`. Run it once after cloning and
+you can stop thinking about it.
+
+Then load `extension/` unpacked at `chrome://extensions` (Developer mode →
+Load unpacked). The extension itself needs no server; `127.0.0.1:8976` only
+backs the popup's local test-bench link.
+
+`npm run dev` then runs three things together, stopping them together on
+Ctrl-C:
 
 | Part | What it does |
 | --- | --- |
@@ -33,19 +47,15 @@ built-ins, so there is nothing else to install.
 | Test-bench bundle | rebuilt only when one of its sources changed (it is ~11 MB) |
 | Test-bench server | <http://127.0.0.1:8976> — the URL the popup's ⧉ button opens |
 
-Then load `extension/` unpacked at `chrome://extensions` (Developer mode →
-Load unpacked). The extension itself needs no server; `127.0.0.1:8976` only
-backs the popup's local test-bench link.
-
 ### Reading the startup output
 
 The two lines to watch for mean different things:
 
+- `[dev] Extension built — load … unpacked` — `extension/dist/` now exists, so
+  the extension can be loaded at `chrome://extensions`. Loading it before this
+  fails with "Could not load manifest".
 - `[serve] Test bench on http://127.0.0.1:8976` — the bench page is live from
-  this moment. You do not need to wait for anything after it.
-- `[dev] Ready — load … unpacked` — `extension/dist/` now exists, so the
-  extension can be loaded at `chrome://extensions`. Loading it before this
-  line fails with "Could not load manifest".
+  this moment. Nothing further to wait for.
 
 Normally both appear in well under a second. The one case that takes longer is
 `[dev] Test-bench bundle is missing or out of date` — the bench bundle is
@@ -54,12 +64,19 @@ connections until then. A `git pull` touching `offscreen.js`, `constants.js`
 or the trust-list PEMs is the usual trigger; on Windows, excluding the repo
 from on-access antivirus scanning makes a noticeable difference here.
 
-Running `npm run build` does not speed any of this up — it writes only
-`extension/dist/`, which is not what the bench server serves.
+### Port 8976 already in use
 
-If the server reports the port is in use, an earlier `npm run dev` is probably
-still running — find it with `netstat -ano | findstr 8976` (Windows) or
-`lsof -i :8976` (macOS/Linux).
+Only one `npm run dev` can serve the bench at a time. A second one prints:
+
+```
+[dev] Port 8976 is already in use, so this instance will not serve the test bench.
+[dev] The extension watcher IS running — extension/dist/ is built and stays up to date.
+```
+
+This is a warning, not a failure: the extension still builds and stays
+watched, and the bench is being served by the other instance. To take the port
+over, stop the other one — find it with `netstat -ano | findstr 8976`
+(Windows) or `lsof -i :8976` (macOS/Linux).
 
 ### Other commands
 
