@@ -56,6 +56,14 @@ const offscreenCtx = await esbuild.context({
 
 // ── Run ───────────────────────────────────────────────────────────────────────
 if (watch) {
+  // esbuild's ctx.watch() resolves as soon as watching has STARTED — it does
+  // not wait for the first build to land on disk. Without a blocking build
+  // first, this script reports "watching" while extension/dist/ is still
+  // missing, and loading the unpacked extension in that window fails with
+  // "Could not load manifest" (manifest.json points at dist/service-worker.js).
+  await Promise.all([swCtx.rebuild(), offscreenCtx.rebuild()]);
+  console.log('[build] Initial build done. Output written to extension/dist/');
+
   await swCtx.watch();
   await offscreenCtx.watch();
   console.log('[build] Watching for changes…  (Ctrl-C to stop)');
