@@ -27,8 +27,37 @@ offscreen document context. Larger assets fail with a clear error message.
 
 ## L3 — Format support
 
-Phase 1 supports JPEG, PNG, GIF, WebP via c2pa-web. Video (MP4) and audio
-are detected by the content script but verification is not yet enabled.
+Phase 1 supports JPEG, PNG, GIF, WebP via c2pa-web. **MP4 is now detected and
+verified end-to-end** (Sprint 2): `<video>`/`<source>` discovery landed in
+`cec6e10`; a byte-acquisition gap where `fetchAsBytes()` (service-worker.js)
+had no `.mp4` Content-Type fallback — unlike the existing jpg/png/gif/webp
+branches — was found and fixed on `fix/video-mime-fallback` (see
+`docs/phase2/supported-formats-matrix.md` and
+`docs/phase2/video-mime-fallback-evidence/`). Confirmed both at the
+fetch level (chrome-free harness, pre-fix vs post-fix JSON) and through the
+real unpacked extension: `sora.MP4` → `Invalid or changed` (expired signing
+cert — see `finding-001-expired-signing-certificate.md`, not a tamper
+finding), a synthetic no-manifest MP4 → `No Content Credentials`, image
+regression unaffected.
+
+Open caveats, not yet resolved:
+
+- Remux survival (does the BMFF hard binding survive a container rewrite?)
+  is still unknown — blocked on a V3 test fixture from Jonah.
+- Transcoded/trimmed (V4) and corrupted-manifest (V5) MP4 fixtures are also
+  still outstanding.
+- Audio is detected by the content script but verification is not enabled.
+- MSE-streamed video (`blob:` sources) is excluded by design, not a bug —
+  `isVerifiableUrl()` rejects `blob:`/`data:` URLs before they're queued,
+  the same treatment `data:` URLs get for images (`content-script.js:98`).
+  There is no fetchable URL to acquire bytes from in that case.
+- `determineStatus()`'s "Fallback for Invalid" branch fires before its
+  TSA-aware branch when a manifest is `Invalid` for a reason other than
+  tampering/broken-signature (e.g. an expired cert with a valid TSA
+  timestamp) — a pre-existing status-mapping ordering quirk, format-agnostic
+  (would affect a JPEG signed with the same certificate identically), not
+  introduced or fixed by the video work above.
+
 `test-assets/trusted/sora.MP4` is included as a Phase 2 reference.
 
 ## L4 — Hard binding only

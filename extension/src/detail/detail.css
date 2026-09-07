@@ -1,0 +1,173 @@
+/* src/detail/detail.css — same design tokens as popup.css, sized for a
+   full browser tab instead of a 360px popup. */
+
+:root {
+  --bg:              #ffffff;
+  --bg-subtle:       #f6f8fa;
+  --border:          #e1e4e8;
+  --text:            #1f2328;
+  --text-muted:      #6a737d;
+  --accent:          #2e75b6;
+  --success:         #1a7f37;
+  --success-bg:      #e6f4ea;
+  --warning:         #bf8f00;
+  --warning-bg:      #fff8e1;
+  --danger:          #cf222e;
+  --danger-bg:       #fbeaea;
+  --neutral:         #6a737d;
+  --neutral-bg:      #eef0f2;
+  --radius:          8px;
+  --radius-sm:       4px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--bg-subtle);
+}
+
+.hidden { display: none !important; }
+
+.header {
+  display: flex;
+  align-items: center;
+  padding: 16px 24px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.brand { display: flex; align-items: center; gap: 12px; }
+
+.brand-icon {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  color: white;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.brand-title { font-weight: 600; font-size: 15px; }
+.brand-sub   { font-size: 12px; color: var(--text-muted); overflow-wrap: anywhere; }
+
+.content {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.empty { text-align: center; color: var(--text-muted); padding: 60px 0; }
+.empty .hint { font-size: 13px; }
+
+.panel {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+/* Media preview reuses .result-thumb-wrap/.result-thumb/.shield-badge from
+   render-thumb.js — but this page never loaded popup.css, so unlike the
+   popup, the base rules for those classes have to be defined here too, not
+   just overrides. Sized larger for a full-page detail view. */
+#media .result-thumb-wrap {
+  position: relative;
+  width: 100%;
+  height: 360px;
+  margin-bottom: 16px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+#media .result-thumb {
+  width: 100%;
+  height: 100%;
+  /* contain, not cover — this is the actual asset under inspection, so the
+     full original image should be visible, not cropped to fill the box. */
+  object-fit: contain;
+  background: var(--bg-subtle);
+}
+#media .media-icon {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48px;
+  color: var(--text-muted);
+}
+#media .shield-badge {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--bg);
+  box-shadow: 0 0 0 2px var(--bg), 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.details {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+.details-full { grid-column: 1 / -1; }
+
+.detail-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.detail-value {
+  font-size: 14px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.status-pill {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.status-verified_trusted, .status-verified_tsa           { background: var(--success-bg); color: var(--success); }
+.status-verified_untrusted, .status-signing_expired       { background: var(--warning-bg); color: var(--warning); }
+.status-content_tampered, .status-broken_signature,
+.status-invalid_or_changed, .status-error                 { background: var(--danger-bg);  color: var(--danger); }
+.status-no_credentials, .status-unsupported_format         { background: var(--neutral-bg); color: var(--neutral); }
+
+.json-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+.json {
+  margin: 0;
+  max-height: 400px;
+  overflow: auto;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 12.5px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

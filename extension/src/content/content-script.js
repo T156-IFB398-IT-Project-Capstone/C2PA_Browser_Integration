@@ -70,11 +70,15 @@
   function discoverMedia() {
     const found = [];
     const seen  = new Set();
+    // Detection is synchronous DOM querying — one shared timestamp for the
+    // whole pass is accurate (no per-item detection cost to distinguish) and
+    // gives the performance harness a "detection -> result" latency anchor.
+    const detectedAt = Date.now();
 
     function add(rawUrl, kind, meta = {}) {
       if (!isVerifiableUrl(rawUrl) || seen.has(rawUrl)) return;
       seen.add(rawUrl);
-      found.push({ src: rawUrl, kind, ...meta });
+      found.push({ src: rawUrl, kind, detectedAt, ...meta });
     }
 
     for (const el of document.querySelectorAll('img')) {

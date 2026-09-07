@@ -1,0 +1,23 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>C2PA video-mime-fallback manual test page</title></head>
+<body>
+  <h1>video-mime-fallback Tier 2 manual test page</h1>
+  <p>Served with a deliberately generic Content-Type (application/octet-stream) on the
+  MP4, to reproduce the real-world case a static file server or CDN commonly hits.
+  Load the unpacked extension, open the popup, click "Scan this page".</p>
+
+  <h2>Video (octet-stream Content-Type — the bug-reproducing case)</h2>
+  <video controls width="320">
+    <source src="/assets/sora.mp4?condition=octet" type="video/mp4">
+  </video>
+
+  <h2>Video, no manifest (octet-stream Content-Type)</h2>
+  <video controls width="320">
+    <source src="/assets/unsigned.mp4?condition=octet" type="video/mp4">
+  </video>
+
+  <h2>Image regression check (correct Content-Type)</h2>
+  <img src="/assets/car.jpg?condition=correct" width="320" alt="car">
+</body>
+</html>
