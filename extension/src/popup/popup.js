@@ -204,6 +204,20 @@ function renderLiveItem(item) {
   const li = document.createElement('li');
   li.className = 'result-item';
 
+  // Jump to the actual element on the page — background relays this
+  // straight to the content script, which owns the DOM lookup + scroll.
+  li.classList.add('result-item--clickable');
+  li.title = 'Click to scroll to this on the page';
+  li.addEventListener('click', async () => {
+    try {
+      const response = await chrome.runtime.sendMessage(msg(MSG.SCROLL_TO_MEDIA, { url: item.url, kind: item.kind }));
+      console.debug('[C2PA popup] scroll-to-media response:', response);
+      if (!response?.ok) console.warn('[C2PA popup] scroll-to-media failed:', response?.error);
+    } catch (err) {
+      console.error('[C2PA popup] scroll-to-media message failed to send:', err);
+    }
+  });
+
   const isImage = (item.kind === 'image' || item.kind === 'gif' || item.kind === 'video-poster');
 
   if (isImage && item.url && !item.url.startsWith('blob:')) {

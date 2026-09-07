@@ -199,6 +199,10 @@ function extractManifest(store) {
   if (!m) return null;
 
   const creator = extractCreator(m);
+  const ai_disclosure = hasAiAssertion(m.assertions);
+  const actions = collectActionsDeep(store, label);
+  const contentCategory = classifyContentFromActions(actions);
+  const contentHistory = describeActions(actions);
   const { ai_disclosure, ai_source_type, has_non_ai_edit } = analyzeActions(m.assertions);
   const signer        = m.signature_info?.common_name
     ? {
@@ -225,6 +229,7 @@ function extractManifest(store) {
     expired: isCertExpired,
   };
 
+  return { creator, ai_disclosure, contentCategory, contentHistory, signer, tsa_info, validity_window };
   return { creator, ai_disclosure, ai_source_type, has_non_ai_edit, signer, tsa_info, validity_window };
 }
 
@@ -385,4 +390,135 @@ function analyzeActions(assertions) {
   }
 
   return result;
+}
+
+// ── Content provenance classification ────────────────────────────────────────
+//
+// A separate axis from VERIFY_STATUS / determineStatus() above. That function
+// answers "can we trust this manifest's signature chain"; this one answers
+// "what does the manifest's own action history say happened to the content."
+// The two are orthogonal — a trusted signature says nothing about whether the
+// signed content is AI-generated. See content-script.js pickBadge() for how
+// the two axes combine (content-script.js allows ai_generated through at any
+// trust tier down to content_tampered/broken_signature, but still gates
+// authentic/edited/ai_edited behind VERIFY_STATUS.VERIFIED_TRUSTED).
+//
+// IPTC digitalSourceType vocabulary (cv.iptc.org/newscodes/digitalsourcetype):
+//   trainedAlgorithmicMedia / algorithmicMedia          -> fully synthetic
+//   compositeWithTrainedAlgorithmicMedia                -> AI used on real content
+//   anything else (digitalCapture, negativeFilm, ...)   -> not AI-sourced
+//
+// A capture with only creation/capture actions is "authentic"; one with
+// additional non-AI editing actions (crop, colour, filter, etc.) is "edited".
+//
+// IMPORTANT: a generative disclosure often lives on an INGREDIENT manifest,
+// not the active one. E.g. re-saving/exporting a ChatGPT (GPT-4o) image adds
+// a wrapper manifest whose only action is "c2pa.opened" — the actual
+// "c2pa.created" + digitalSourceType assertion sits on the ingredient it
+// opened. collectActionsDeep() walks that chain so this doesn't get missed;
+// confirmed against dev-test-library/adobe-official-manifests/ChatGPTgen.png.
+
+const AI_GENERATED_SOURCE_TYPES = ['trainedAlgorithmicMedia', 'algorithmicMedia'];
+const AI_EDITED_SOURCE_TYPES    = ['compositeWithTrainedAlgorithmicMedia'];
+
+// Actions that represent creation/capture/handling, not an edit of existing content.
+const NON_EDIT_ACTIONS = new Set(['c2pa.created', 'c2pa.opened', 'c2pa.published']);
+
+function collectActions(assertions) {
+  if (!Array.isArray(assertions)) return [];
+  const actions = [];
+  for (const assertion of assertions) {
+    if (!/^c2pa\.actions(\.v\d+)?$/.test(assertion?.label ?? '')) continue;
+    if (Array.isArray(assertion?.data?.actions)) actions.push(...assertion.data.actions);
+  }
+  return actions;
+}
+
+/** Collect actions from `manifestLabel` and every ingredient manifest beneath it. */
+function collectActionsDeep(store, manifestLabel, seen = new Set()) {
+  if (!manifestLabel || seen.has(manifestLabel)) return [];
+  seen.add(manifestLabel);
+
+  const manifest = store?.manifests?.[manifestLabel];
+  if (!manifest) return [];
+
+  const actions = collectActions(manifest.assertions);
+  for (const ingredient of manifest.ingredients ?? []) {
+    if (ingredient?.active_manifest) {
+      actions.push(...collectActionsDeep(store, ingredient.active_manifest, seen));
+    }
+  }
+  return actions;
+}
+
+/**
+ * @param {object[]} actions  Pre-collected actions (see collectActionsDeep).
+ * @returns {'authentic'|'edited'|'ai_edited'|'ai_generated'|null}
+ */
+export function classifyContentFromActions(actions) {
+  if (!actions || actions.length === 0) return null;
+
+  const sourceTypes = actions.map(a => a?.digitalSourceType ?? '');
+
+  if (sourceTypes.some(dst => AI_GENERATED_SOURCE_TYPES.some(t => dst.includes(t)))) {
+    return 'ai_generated';
+  }
+  if (sourceTypes.some(dst => AI_EDITED_SOURCE_TYPES.some(t => dst.includes(t)))) {
+    return 'ai_edited';
+  }
+
+  const hasEditAction = actions.some(a => a?.action && !NON_EDIT_ACTIONS.has(a.action));
+  return hasEditAction ? 'edited' : 'authentic';
+}
+
+/**
+ * Classify content provenance into one of four buckets, or null if neither
+ * `manifestLabel` nor any ingredient beneath it carries action history to
+ * classify from.
+ * @returns {'authentic'|'edited'|'ai_edited'|'ai_generated'|null}
+ */
+export function classifyContent(store, manifestLabel) {
+  return classifyContentFromActions(collectActionsDeep(store, manifestLabel));
+}
+
+// Human-readable labels for common C2PA action codes, used for the
+// "content history" fact shown in the detail popup. Falls back to a
+// generic title-cased label (stripping the "c2pa." prefix) for any action
+// code not listed here — the vocabulary is large and still growing.
+const ACTION_LABELS = {
+  'c2pa.created':            'Created',
+  'c2pa.opened':             'Opened',
+  'c2pa.converted':          'Converted',
+  'c2pa.copied':             'Copied',
+  'c2pa.cropped':            'Cropped',
+  'c2pa.resized':            'Resized',
+  'c2pa.filtered':           'Filtered',
+  'c2pa.color_adjustments':  'Color adjusted',
+  'c2pa.drawing':            'Drawing added',
+  'c2pa.edited':             'Edited',
+  'c2pa.orientation':        'Orientation changed',
+  'c2pa.published':          'Published',
+  'c2pa.repackaged':         'Repackaged',
+};
+
+function titleCase(s) {
+  return s.replace(/[._-]+/g, ' ').trim().replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function describeAction(action) {
+  const code = action?.action ?? '';
+  const base = ACTION_LABELS[code] ?? (code ? titleCase(code.replace(/^c2pa\./, '')) : 'Unknown action');
+
+  const agent = typeof action.softwareAgent === 'string' ? action.softwareAgent : action.softwareAgent?.name;
+  const dst = action?.digitalSourceType ?? '';
+  const isAi = [...AI_GENERATED_SOURCE_TYPES, ...AI_EDITED_SOURCE_TYPES].some(t => dst.includes(t));
+
+  let label = agent ? `${base} by ${agent}` : base;
+  if (isAi) label += ' (AI)';
+  return label;
+}
+
+/** @param {object[]} actions  Pre-collected actions (see collectActionsDeep). */
+export function describeActions(actions) {
+  return (actions ?? []).map(describeAction);
 }

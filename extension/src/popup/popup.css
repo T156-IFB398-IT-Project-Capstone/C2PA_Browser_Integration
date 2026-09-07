@@ -360,6 +360,17 @@ a.icon-btn {
   background: var(--bg);
 }
 
+/* Live Media rows only — clicking scrolls the page to that element */
+.result-item--clickable {
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+}
+.result-item--clickable:hover {
+  background: var(--bg-subtle);
+  border-color: var(--accent);
+}
+
+.result-thumb {
 .result-thumb-wrap {
   position: relative;
   width: 48px; height: 48px;

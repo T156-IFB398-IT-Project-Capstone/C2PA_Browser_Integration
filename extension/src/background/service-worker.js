@@ -287,6 +287,15 @@ async function scanActiveTab() {
   };
 
   await chrome.storage.local.set({ [STORAGE_KEYS.LAST_SCAN]: summary });
+
+  // Tell the content script which assets carry C2PA credentials so it can
+  // annotate them in-page. Best-effort: the tab may have navigated away.
+  try {
+    await chrome.tabs.sendMessage(tab.id, msg(MSG.SCAN_COMPLETE, { summary }));
+  } catch (err) {
+    console.debug('[C2PA background] could not notify tab of scan completion:', err?.message ?? err);
+  }
+
   return summary;
 }
 
@@ -354,6 +363,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         case MSG.GET_LAST_RESULT: {
           const stored = await chrome.storage.local.get(STORAGE_KEYS.LAST_SCAN);
           sendResponse({ ok: true, summary: stored[STORAGE_KEYS.LAST_SCAN] ?? null });
+          return;
+        }
+
+        // Relay straight through to the active tab's content script, which
+        // owns the actual DOM lookup + scrollIntoView.
+        case MSG.SCROLL_TO_MEDIA: {
+          const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+          if (!tab?.id) { sendResponse({ ok: false, error: 'No active tab.' }); return; }
+          try {
+            const contentResponse = await chrome.tabs.sendMessage(tab.id, msg(MSG.SCROLL_TO_MEDIA, message.payload));
+            sendResponse({ ok: true, found: contentResponse?.found ?? null });
+          } catch (err) {
+            sendResponse({ ok: false, error: 'Content script not ready — try reloading the page.' });
+          }
           return;
         }
 

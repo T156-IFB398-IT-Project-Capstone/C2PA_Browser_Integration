@@ -12,9 +12,12 @@ export const MSG = Object.freeze({
   VERIFY_RESULT:   'c2pa/verify_result',    // reserved for future SW-side response routing
 
   // popup → background (on-demand actions)
-  SCAN_ACTIVE_TAB: 'c2pa/scan_active_tab',
-  GET_LAST_RESULT: 'c2pa/get_last_result',
-  GET_TAB_MEDIA:   'c2pa/get_tab_media',    // { } → { tabId, media, pageUrl, count }
+  SCAN_ACTIVE_TAB:  'c2pa/scan_active_tab',
+  GET_LAST_RESULT:  'c2pa/get_last_result',
+  GET_TAB_MEDIA:    'c2pa/get_tab_media',    // { } → { tabId, media, pageUrl, count }
+
+  // popup → background → content-script (relayed as-is to the active tab)
+  SCROLL_TO_MEDIA:  'c2pa/scroll_to_media',  // { url, kind }
 
   // background → popup (push events)
   SCAN_PROGRESS:   'c2pa/scan_progress',    // { done, total }
