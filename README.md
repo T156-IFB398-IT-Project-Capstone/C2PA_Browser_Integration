@@ -16,7 +16,7 @@ A fresh clone needs nothing beyond these two commands — no `.env`, no API keys
 no external service, no separate server checkout.
 
 ```bash
-git clone -b feat/sprint2-3-ui-with-dev-setup <repo-url>
+git clone <repo-url>
 cd C2PA_Browser_Integration
 npm install     # installs deps, then builds the test-bench bundle (postinstall)
 npm run dev     # extension watcher + test-bench server, in one terminal
