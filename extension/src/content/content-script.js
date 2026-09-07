@@ -317,7 +317,13 @@
     if (!wrapper || wrapper.dataset.c2paBadgeWrapper !== '1') {
       wrapper = document.createElement('span');
       wrapper.dataset.c2paBadgeWrapper = '1';
-      wrapper.style.cssText = 'display:inline-block;position:relative;line-height:0;';
+      // Host-page stylesheets can target bare `img`/`span` selectors (e.g.
+      // lazy-load placeholder styles) and bleed into whatever we inject here.
+      // Inline styles beat any non-!important external rule, so pin every
+      // property a host page is likely to set, not just the ones we need.
+      wrapper.style.cssText =
+        'all:initial;display:inline-block;position:relative;line-height:0;' +
+        'background:transparent;border:none;box-shadow:none;padding:0;margin:0;';
       imgEl.parentNode.insertBefore(wrapper, imgEl);
       wrapper.appendChild(imgEl);
     }
@@ -326,9 +332,11 @@
       badge = document.createElement('img');
       badge.dataset.c2paBadgeIcon = '1';
       badge.style.cssText =
-        `position:absolute;right:${margin}px;bottom:${margin}px;` +
+        'all:initial;position:absolute;' +
+        `right:${margin}px;bottom:${margin}px;` +
         `width:${size}px;height:${size}px;object-fit:contain;` +
-        `pointer-events:none;z-index:2147483647;`;
+        'background:transparent;border:none;box-shadow:none;padding:0;margin:0;' +
+        'pointer-events:none;z-index:2147483647;';
       wrapper.appendChild(badge);
     }
 

@@ -174,7 +174,7 @@ function extractManifest(store) {
 
   const creator = extractCreator(m);
   const ai_disclosure = hasAiAssertion(m.assertions);
-  const contentCategory = classifyContent(m.assertions);
+  const contentCategory = classifyContent(store, label);
   const signer        = m.signature_info?.common_name
     ? {
         common_name: m.signature_info.common_name,
@@ -351,10 +351,10 @@ function hasAiAssertion(assertions) {
 // answers "can we trust this manifest's signature chain"; this one answers
 // "what does the manifest's own action history say happened to the content."
 // The two are orthogonal — a trusted signature says nothing about whether the
-// signed content is AI-generated. Callers MUST gate on
-// VERIFY_STATUS.VERIFIED_TRUSTED before showing this value to a user: an
-// untrusted or tampered manifest's account of its own history can't be relied
-// on either. See content-script.js for the gating logic and badge mapping.
+// signed content is AI-generated. See content-script.js pickBadge() for how
+// the two axes combine (content-script.js allows ai_generated through at any
+// trust tier down to content_tampered/broken_signature, but still gates
+// authentic/edited/ai_edited behind VERIFY_STATUS.VERIFIED_TRUSTED).
 //
 // IPTC digitalSourceType vocabulary (cv.iptc.org/newscodes/digitalsourcetype):
 //   trainedAlgorithmicMedia / algorithmicMedia          -> fully synthetic
@@ -363,6 +363,13 @@ function hasAiAssertion(assertions) {
 //
 // A capture with only creation/capture actions is "authentic"; one with
 // additional non-AI editing actions (crop, colour, filter, etc.) is "edited".
+//
+// IMPORTANT: a generative disclosure often lives on an INGREDIENT manifest,
+// not the active one. E.g. re-saving/exporting a ChatGPT (GPT-4o) image adds
+// a wrapper manifest whose only action is "c2pa.opened" — the actual
+// "c2pa.created" + digitalSourceType assertion sits on the ingredient it
+// opened. collectActionsDeep() walks that chain so this doesn't get missed;
+// confirmed against dev-test-library/adobe-official-manifests/ChatGPTgen.png.
 
 const AI_GENERATED_SOURCE_TYPES = ['trainedAlgorithmicMedia', 'algorithmicMedia'];
 const AI_EDITED_SOURCE_TYPES    = ['compositeWithTrainedAlgorithmicMedia'];
@@ -380,13 +387,31 @@ function collectActions(assertions) {
   return actions;
 }
 
+/** Collect actions from `manifestLabel` and every ingredient manifest beneath it. */
+function collectActionsDeep(store, manifestLabel, seen = new Set()) {
+  if (!manifestLabel || seen.has(manifestLabel)) return [];
+  seen.add(manifestLabel);
+
+  const manifest = store?.manifests?.[manifestLabel];
+  if (!manifest) return [];
+
+  const actions = collectActions(manifest.assertions);
+  for (const ingredient of manifest.ingredients ?? []) {
+    if (ingredient?.active_manifest) {
+      actions.push(...collectActionsDeep(store, ingredient.active_manifest, seen));
+    }
+  }
+  return actions;
+}
+
 /**
- * Classify content provenance into one of four buckets, or null if the
- * manifest carries no action history to classify from.
+ * Classify content provenance into one of four buckets, or null if neither
+ * `manifestLabel` nor any ingredient beneath it carries action history to
+ * classify from.
  * @returns {'authentic'|'edited'|'ai_edited'|'ai_generated'|null}
  */
-export function classifyContent(assertions) {
-  const actions = collectActions(assertions);
+export function classifyContent(store, manifestLabel) {
+  const actions = collectActionsDeep(store, manifestLabel);
   if (actions.length === 0) return null;
 
   const sourceTypes = actions.map(a => a?.digitalSourceType ?? '');
