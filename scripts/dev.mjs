@@ -212,5 +212,29 @@ server.listen(PORT, HOST, () => {
     shutdown(code ?? 1);
   });
 
-  console.log('[dev] Watching the extension and serving the test bench. Ctrl-C to stop.');
+  // Don't claim to be ready until the extension bundles actually exist.
+  // manifest.json points at dist/service-worker.js, so loading the unpacked
+  // extension before the first build lands fails with "Could not load
+  // manifest" — which looks like a broken repo rather than a race.
+  waitForExtensionBuild();
 });
+
+async function waitForExtensionBuild() {
+  const outputs = [
+    path.join(ROOT, 'extension/dist/service-worker.js'),
+    path.join(ROOT, 'extension/dist/offscreen.js'),
+  ];
+
+  for (let i = 0; i < 600 && !shuttingDown; i++) {          // up to ~60s
+    if (outputs.every(f => fs.existsSync(f))) {
+      console.log(`[dev] Ready — load ${path.join(ROOT, 'extension')} unpacked at chrome://extensions`);
+      console.log('[dev] Watching the extension and serving the test bench. Ctrl-C to stop.');
+      return;
+    }
+    await new Promise(r => setTimeout(r, 100));
+  }
+
+  if (!shuttingDown) {
+    console.warn('[dev] extension/dist/ still missing after 60s — check the [build] output above.');
+  }
+}
