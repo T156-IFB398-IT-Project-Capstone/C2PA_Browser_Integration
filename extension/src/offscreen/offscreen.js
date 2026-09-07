@@ -195,7 +195,6 @@ function extractManifest(store) {
   if (!m) return null;
 
   const creator = extractCreator(m);
-  const ai_disclosure = hasAiAssertion(m.assertions);
   const actions = collectActionsDeep(store, label);
   const contentCategory = classifyContentFromActions(actions);
   const contentHistory = describeActions(actions);
@@ -225,8 +224,16 @@ function extractManifest(store) {
     expired: isCertExpired,
   };
 
-  return { creator, ai_disclosure, contentCategory, contentHistory, signer, tsa_info, validity_window };
-  return { creator, ai_disclosure, ai_source_type, has_non_ai_edit, signer, tsa_info, validity_window };
+  // Two orthogonal axes, both consumed downstream: the AI-disclosure fields
+  // feed shared/badge-map.js and detail/detail.js, while contentCategory /
+  // contentHistory feed content/content-script.js. Returning only one set
+  // silently degrades the other's rendering.
+  return {
+    creator,
+    ai_disclosure, ai_source_type, has_non_ai_edit,
+    contentCategory, contentHistory,
+    signer, tsa_info, validity_window,
+  };
 }
 
 // Resolve creator string: author name > tool name > raw claim generator
