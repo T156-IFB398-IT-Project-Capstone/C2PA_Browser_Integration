@@ -31,6 +31,9 @@ docs/phase2/spike-001-evidence/*.bundle.js
 # c2pa-test-bench/build.mjs.
 c2pa-test-bench/verify-bundle.js
 c2pa-test-bench/verify-bundle.js.map
+# Build-input record emitted alongside the bundle; `npm run dev` reads it to
+# decide whether a rebuild is needed. Regenerated with the bundle.
+c2pa-test-bench/verify-bundle.meta.json
 
 # ============================================================
 # Test assets with real user data

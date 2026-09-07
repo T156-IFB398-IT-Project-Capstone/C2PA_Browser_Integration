@@ -24,12 +24,27 @@ this page automatically the next time the bundle is rebuilt.
   classic script — kept that way so its inline `onclick="..."` handlers and
   global function scope keep working unchanged).
 
-## Building
+## Quickest way to run it
 
-From the repo root (relies on Node's upward `node_modules` resolution —
-this directory deliberately has no `package.json` of its own):
+From the repo root, on a fresh clone:
 
+```bash
+npm install     # builds verify-bundle.js for you (postinstall)
+npm run dev     # serves this directory on http://127.0.0.1:8976
 ```
+
+Then open <http://127.0.0.1:8976>. `npm run dev` also rebuilds the bundle
+automatically whenever one of its sources changes, so this is the only command
+you normally need. Ctrl-C stops it.
+
+## Building by hand
+
+`npm install` and `npm run dev` both do this for you — you only need it if you
+are running the bundler on its own. From the repo root (this relies on Node's
+upward `node_modules` resolution — the directory deliberately has no
+`package.json` of its own):
+
+```bash
 node c2pa-test-bench/build.mjs
 ```
 
@@ -37,11 +52,12 @@ Re-run this whenever `offscreen.js`, its dependencies, or `verify-entry.mjs`
 change. `app.js`/`index.html`/`style.css` need no build step — edit and
 reload.
 
-## Running
+## Running without the dev server
 
 Open `index.html` directly in a browser, or serve the directory with any
 static file server. No extension installation needed — this is a plain web
-page, not part of the Chromium extension.
+page, not part of the Chromium extension. `verify-bundle.js` must already be
+built (see above), otherwise the page loads but no verification runs.
 
 - The 9 reference cards under `assets/` verify live on page load (real
   `fetch()` + `verify()` per asset — the WASM SDK's cold-start adds brief,

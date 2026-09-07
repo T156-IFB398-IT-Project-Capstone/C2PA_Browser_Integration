@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "build":       "node build.mjs",
-    "build:watch": "node build.mjs --watch"
+    "build:watch": "node build.mjs --watch",
+    "dev":         "node scripts/dev.mjs",
+    "postinstall": "node c2pa-test-bench/build.mjs"
   },
   "dependencies": {
     "@contentauth/c2pa-web": "^0.13.1"

@@ -10,12 +10,42 @@ Phase 1 (Semester 1) proof-of-concept complete. Extension-only architecture vali
 
 Phase 2 (Semester 2): SPIKE-001 confirmed `c2pa-web` parses and validates MP4's BMFF hard binding against a real signed asset (Outcome A — see `docs/phase2/spike-001-mp4-verification.md`), and the scan pipeline (content-script discovery → service worker → offscreen WASM verifier) now handles video the same way it handles images. Known follow-ups tracked in `docs/phase2/`: remux survival is still untested (Q3, blocked on a fixture), and a signing-certificate-expiry effect (`finding-001`) means a legitimately-signed asset can read as invalid once its signer's certificate lapses — independent of video, applies to any format.
 
-## Quick start
+## Getting started
+
+A fresh clone needs nothing beyond these two commands — no `.env`, no API keys,
+no external service, no separate server checkout.
 
 ```bash
-npm install
-npm run build
-# Load extension/ unpacked at chrome://extensions (Developer mode → Load unpacked)
+git clone -b feat/sprint2-3-ui-with-dev-setup <repo-url>
+cd C2PA_Browser_Integration
+npm install     # installs deps, then builds the test-bench bundle (postinstall)
+npm run dev     # extension watcher + test-bench server, in one terminal
+```
+
+Requires Node 18 or newer (`node --version`) — `npm run dev` uses only Node
+built-ins, so there is nothing else to install.
+
+`npm run dev` runs three things together and stops them together on Ctrl-C:
+
+| Part | What it does |
+| --- | --- |
+| Extension watcher | rebuilds `extension/dist/` on every source change |
+| Test-bench bundle | rebuilt only when one of its sources changed (it is ~11 MB) |
+| Test-bench server | <http://127.0.0.1:8976> — the URL the popup's ⧉ button opens |
+
+Then load `extension/` unpacked at `chrome://extensions` (Developer mode →
+Load unpacked). The extension itself needs no server; `127.0.0.1:8976` only
+backs the popup's local test-bench link.
+
+If the server reports the port is in use, an earlier `npm run dev` is probably
+still running — find it with `netstat -ano | findstr 8976` (Windows) or
+`lsof -i :8976` (macOS/Linux).
+
+### Other commands
+
+```bash
+npm run build         # one-shot production build of the extension
+npm run build:watch   # extension watcher only, without the test-bench server
 ```
 
 ## Architecture

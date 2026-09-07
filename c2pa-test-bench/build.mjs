@@ -14,8 +14,9 @@
 //   node c2pa-test-bench/build.mjs
 
 import * as esbuild from 'esbuild';
+import { writeFileSync } from 'node:fs';
 
-await esbuild.build({
+const result = await esbuild.build({
   entryPoints: ['c2pa-test-bench/verify-entry.mjs'],
   outfile:     'c2pa-test-bench/verify-bundle.js',
   bundle: true,
@@ -29,6 +30,15 @@ await esbuild.build({
     __dirname: '""',
     __filename: '""',
   },
+  // Records every file that fed the bundle. `npm run dev` reads this to decide
+  // whether the (~11 MB) bundle is stale, instead of rebuilding it every start
+  // or guessing from a hardcoded source list that would drift.
+  metafile: true,
 });
+
+writeFileSync(
+  'c2pa-test-bench/verify-bundle.meta.json',
+  JSON.stringify(result.metafile),
+);
 
 console.log('[c2pa-test-bench build] Done. verify-bundle.js written.');
