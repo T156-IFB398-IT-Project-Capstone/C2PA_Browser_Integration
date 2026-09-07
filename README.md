@@ -37,6 +37,26 @@ Then load `extension/` unpacked at `chrome://extensions` (Developer mode →
 Load unpacked). The extension itself needs no server; `127.0.0.1:8976` only
 backs the popup's local test-bench link.
 
+### Reading the startup output
+
+The two lines to watch for mean different things:
+
+- `[serve] Test bench on http://127.0.0.1:8976` — the bench page is live from
+  this moment. You do not need to wait for anything after it.
+- `[dev] Ready — load … unpacked` — `extension/dist/` now exists, so the
+  extension can be loaded at `chrome://extensions`. Loading it before this
+  line fails with "Could not load manifest".
+
+Normally both appear in well under a second. The one case that takes longer is
+`[dev] Test-bench bundle is missing or out of date` — the bench bundle is
+~11 MB and the server only binds after it is rebuilt, so `8976` refuses
+connections until then. A `git pull` touching `offscreen.js`, `constants.js`
+or the trust-list PEMs is the usual trigger; on Windows, excluding the repo
+from on-access antivirus scanning makes a noticeable difference here.
+
+Running `npm run build` does not speed any of this up — it writes only
+`extension/dist/`, which is not what the bench server serves.
+
 If the server reports the port is in use, an earlier `npm run dev` is probably
 still running — find it with `netstat -ano | findstr 8976` (Windows) or
 `lsof -i :8976` (macOS/Linux).

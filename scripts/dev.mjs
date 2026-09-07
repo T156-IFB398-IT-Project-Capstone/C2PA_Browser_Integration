@@ -166,13 +166,24 @@ process.on('SIGTERM', () => shutdown(0));
 if (bundleIsFresh()) {
   console.log('[dev] Test-bench bundle is up to date — skipping rebuild.');
 } else {
-  console.log('[dev] Test-bench bundle missing or stale — building…');
+  // This runs before the server binds, so 127.0.0.1:8976 is unreachable until
+  // it finishes. That is a ~11 MB bundle: normally a second or two, but slower
+  // on a cold cache or when on-access antivirus scans the output. Say so
+  // explicitly — an unexplained silent wait reads as a hung or broken setup.
+  // A pull that touches offscreen.js, constants.js or the trust-list PEMs is
+  // the usual reason this is not already up to date.
+  console.log('[dev] Test-bench bundle is missing or out of date — rebuilding it now.');
+  console.log(`[dev] It is ~11 MB, so this can take a few seconds. http://${HOST}:${PORT}`);
+  console.log('[dev] starts serving once it finishes.');
+
+  const startedAt = Date.now();
   try {
     await buildBundle();
   } catch (err) {
     console.error(`[dev] Could not build the test-bench bundle: ${err.message}`);
     process.exit(1);
   }
+  console.log(`[dev] Test-bench bundle rebuilt in ${((Date.now() - startedAt) / 1000).toFixed(1)}s.`);
 }
 
 server = createServer();
