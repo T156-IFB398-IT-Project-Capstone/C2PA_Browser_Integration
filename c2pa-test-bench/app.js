@@ -29,6 +29,127 @@ function getStatusLabel(status) {
   }
 }
 
+// Initial test cases matching exact c2pa-web output and extension popup tags
+const initialTestCases = [
+  {
+    id: 'case-verified-tsa-camera',
+    title: 'Camera Capture (Truepic TSA)',
+    status: VERIFY_STATUS.VERIFIED_TSA,
+    statusLabel: getStatusLabel(VERIFY_STATUS.VERIFIED_TSA),
+    mediaType: 'image',
+    src: 'assets/verified-trusted.jpg',
+    creator: 'Truepic Lens Camera',
+    signer: 'Truepic Lens CA',
+    issuer: 'Truepic Root CA',
+    aiDisclosure: false,
+    desc: 'Verified via TSA timestamping. Truepic camera capture metadata with secure TSA proof.',
+    timestamp: '2023-02-12T10:00:00Z',
+    tsaValidated: true
+  },
+  {
+    id: 'case-sample-video',
+    title: 'Zoetrope Animation (MP4 Video)',
+    status: VERIFY_STATUS.VERIFIED_TSA,
+    statusLabel: getStatusLabel(VERIFY_STATUS.VERIFIED_TSA),
+    mediaType: 'video',
+    src: 'assets/sample-video.mp4',
+    creator: 'Truepic C2PA Video Engine',
+    signer: 'Truepic Lens / C2PA Signer',
+    issuer: 'Truepic Trust CA',
+    aiDisclosure: false,
+    desc: 'Verified via TSA timestamping. C2PA-signed MP4 video in ISO BMFF container.',
+    timestamp: '2023-02-12T10:00:00Z',
+    tsaValidated: true
+  },
+  {
+    id: 'case-verified-tsa-landscape',
+    title: 'Landscape Photo (Truepic TSA)',
+    status: VERIFY_STATUS.VERIFIED_TSA,
+    statusLabel: getStatusLabel(VERIFY_STATUS.VERIFIED_TSA),
+    mediaType: 'image',
+    src: 'assets/verified-tsa.jpg',
+    creator: 'Truepic Lens SDK',
+    signer: 'Truepic Lens SDK Signer',
+    issuer: 'Truepic CA',
+    aiDisclosure: false,
+    desc: 'Verified via TSA timestamping. Original landscape photograph with embedded C2PA claim.',
+    timestamp: '2023-02-12T10:00:00Z',
+    tsaValidated: true
+  },
+  {
+    id: 'case-earth-self-signed',
+    title: 'Earth Apollo 17 (Self-Signed Test Key)',
+    status: VERIFY_STATUS.VERIFIED_UNTRUSTED,
+    statusLabel: getStatusLabel(VERIFY_STATUS.VERIFIED_UNTRUSTED),
+    mediaType: 'image',
+    src: 'assets/untrusted-signer.jpg',
+    creator: 'c2pa-rs',
+    signer: 'c2pa-test (Self-Signed)',
+    issuer: 'c2pa-test CA',
+    aiDisclosure: false,
+    desc: 'Signed with c2pa-test development key. Cryptographic signature is intact, but provider is not in the public CAWG trust list.',
+    timestamp: '2024-05-10T14:20:00Z',
+    tsaValidated: false
+  },
+  {
+    id: 'case-ai-verified',
+    title: 'Generative AI Media (c2pa-rs)',
+    status: VERIFY_STATUS.VERIFIED_UNTRUSTED,
+    statusLabel: getStatusLabel(VERIFY_STATUS.VERIFIED_UNTRUSTED),
+    mediaType: 'image',
+    src: 'assets/expired-cert.jpg',
+    creator: 'c2pa-rs',
+    signer: 'C2PA Test Signer',
+    issuer: 'Self-Signed CA',
+    aiDisclosure: true,
+    desc: 'AI-generated content credential. AI source type flagged with self-signed development certificate.',
+    timestamp: '2024-05-10T14:20:00Z',
+    tsaValidated: false
+  },
+  {
+    id: 'case-content-tampered',
+    title: 'Tampered Pixels (Content Modified)',
+    status: VERIFY_STATUS.CONTENT_TAMPERED,
+    statusLabel: getStatusLabel(VERIFY_STATUS.CONTENT_TAMPERED),
+    mediaType: 'image',
+    src: 'assets/tampered-pixels.jpeg',
+    creator: 'Adobe C2PA',
+    signer: 'Adobe Signer',
+    issuer: 'Adobe Trust Authority',
+    aiDisclosure: false,
+    desc: 'Pixel bytes altered post-signing, failing cryptographic data hash verification.',
+    timestamp: '2022-01-24T12:00:00Z',
+    tsaValidated: false
+  },
+  {
+    id: 'case-broken-signature',
+    title: 'Corrupted Manifest Signature',
+    status: VERIFY_STATUS.BROKEN_SIGNATURE,
+    statusLabel: getStatusLabel(VERIFY_STATUS.BROKEN_SIGNATURE),
+    mediaType: 'image',
+    src: 'assets/broken-signature.jpg',
+    creator: 'Adobe C2PA',
+    signer: 'Adobe Signer',
+    issuer: 'Adobe Trust Authority',
+    aiDisclosure: false,
+    desc: 'Manifest claim signature corrupted or modified after signing.',
+    timestamp: '2022-01-24T12:00:00Z',
+    tsaValidated: false
+  },
+  {
+    id: 'case-no-credentials',
+    title: 'Standard JPEG (No Content Credentials)',
+    status: VERIFY_STATUS.NO_CREDENTIALS,
+    statusLabel: getStatusLabel(VERIFY_STATUS.NO_CREDENTIALS),
+    mediaType: 'image',
+    src: 'assets/no-credentials.jpg',
+    creator: 'N/A',
+    signer: 'Unsigned',
+    issuer: 'N/A',
+    aiDisclosure: false,
+    desc: 'Standard image without any embedded C2PA provenance box.',
+    timestamp: 'N/A',
+    tsaValidated: false
 // ---------------------------------------------------------------------------
 // Live verification — real bytes through the real extension verifier.
 // window.C2PAVerify / window.SUPPORTED_MIME_TYPES are set by verify-bundle.js
@@ -272,10 +393,9 @@ function renderGrid() {
         <h3 class="card-title">${item.title}</h3>
         ${metaLine ? `<div style="font-size:0.775rem; color:var(--text-muted); font-weight:500;">${metaLine}</div>` : ''}
         <p class="card-desc">${item.desc}</p>
-        <div class="card-footer">
-          <span class="tech-tag">${item.techId}</span>
+        <div class="card-footer" style="display:flex; justify-content:flex-end;">
           <button class="inspect-btn" onclick="openInspectModal('${item.id}')">
-            Inspect Manifest
+            View Tags
             <svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"></path></svg>
           </button>
         </div>
@@ -287,7 +407,6 @@ function renderGrid() {
 }
 
 function setupEventListeners() {
-
   // Drag & drop upload file sandbox
   const dropzone = document.getElementById('dropzone');
   const fileInput = document.getElementById('file-upload-input');
@@ -357,6 +476,19 @@ async function handleUploadedFiles(files) {
     }
 
     const newItem = {
+      id: 'custom-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
+      title: file.name,
+      status: VERIFY_STATUS.VERIFIED_TSA,
+      statusLabel: isVideo ? 'Verified via TSA (MP4)' : 'Verified via TSA',
+      mediaType: isVideo ? 'video' : 'image',
+      src: mediaUrl,
+      creator: 'Local Sandbox Asset',
+      signer: 'Local Signer',
+      issuer: 'C2PA Anchor',
+      aiDisclosure: false,
+      desc: `File: ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB).`,
+      timestamp: new Date(file.lastModified).toISOString(),
+      tsaValidated: true
       ...baseItem,
       ...fieldsFromResult(result),
       desc: `File size: ${(file.size / (1024 * 1024)).toFixed(2)} MB.`,
@@ -376,9 +508,8 @@ function openInspectModal(id) {
   const modalTitle = document.getElementById('modal-title');
   const modalPreview = document.getElementById('modal-media-preview');
   const modalGrid = document.getElementById('modal-details-grid');
-  const jsonBox = document.getElementById('modal-json-box');
 
-  modalTitle.textContent = `Manifest Inspection: ${item.title}`;
+  modalTitle.textContent = item.title;
 
   if (item.mediaType === 'video') {
     modalPreview.innerHTML = `<video src="${item.src}" controls autoplay style="width:100%; max-height:260px;"></video>`;
@@ -388,36 +519,43 @@ function openInspectModal(id) {
 
   modalGrid.innerHTML = `
     <div class="detail-item">
-      <div class="detail-label">VERIFY_STATUS Code</div>
-      <div class="detail-value" style="font-family: monospace; color: #a5b4fc;">${item.status}</div>
+      <div class="detail-label">Status</div>
+      <div class="detail-value">
+        <span class="status-badge ${item.status}">
+          <span class="dot"></span>
+          ${item.statusLabel}
+        </span>
+      </div>
     </div>
     <div class="detail-item">
-      <div class="detail-label">Status Label</div>
-      <div class="detail-value">${item.statusLabel}</div>
+      <div class="detail-label">Media Type</div>
+      <div class="detail-value">${item.mediaType.toUpperCase()}</div>
     </div>
     <div class="detail-item">
-      <div class="detail-label">Author / Creator</div>
+      <div class="detail-label">Creator / Generator</div>
       <div class="detail-value">${item.creator || 'N/A'}</div>
     </div>
     <div class="detail-item">
-      <div class="detail-label">Signer / Common Name</div>
-      <div class="detail-value">${item.signer}</div>
+      <div class="detail-label">Signer Common Name</div>
+      <div class="detail-value">${item.signer || 'N/A'}</div>
     </div>
     <div class="detail-item">
-      <div class="detail-label">Subject Key Identifier (SKI)</div>
-      <div class="detail-value">${item.ski}</div>
+      <div class="detail-label">Certificate Issuer</div>
+      <div class="detail-value">${item.issuer || 'N/A'}</div>
     </div>
     <div class="detail-item">
-      <div class="detail-label">Timestamp / TSA Info</div>
+      <div class="detail-label">AI Generated / Disclosure</div>
+      <div class="detail-value">${item.aiDisclosure ? 'AI: yes' : 'No'}</div>
+    </div>
+    <div class="detail-item">
+      <div class="detail-label">Signing Timestamp</div>
       <div class="detail-value">${item.timestamp}</div>
     </div>
-    <div class="detail-item" style="grid-column: 1 / -1;">
-      <div class="detail-label">Validation Status / Checksum</div>
-      <div class="detail-value">${item.checksum}</div>
+    <div class="detail-item">
+      <div class="detail-label">TSA Validated</div>
+      <div class="detail-value">${item.tsaValidated ? 'Yes (Valid TSA timestamp)' : 'No'}</div>
     </div>
   `;
-
-  jsonBox.textContent = item.rawManifest ? JSON.stringify(item.rawManifest, null, 2) : '// No C2PA manifest present (null_manifest)';
 
   modal.classList.add('open');
 }
