@@ -174,7 +174,9 @@ function extractManifest(store) {
 
   const creator = extractCreator(m);
   const ai_disclosure = hasAiAssertion(m.assertions);
-  const contentCategory = classifyContent(store, label);
+  const actions = collectActionsDeep(store, label);
+  const contentCategory = classifyContentFromActions(actions);
+  const contentHistory = describeActions(actions);
   const signer        = m.signature_info?.common_name
     ? {
         common_name: m.signature_info.common_name,
@@ -200,7 +202,7 @@ function extractManifest(store) {
     expired: isCertExpired,
   };
 
-  return { creator, ai_disclosure, contentCategory, signer, tsa_info, validity_window };
+  return { creator, ai_disclosure, contentCategory, contentHistory, signer, tsa_info, validity_window };
 }
 
 // Resolve creator string: author name > tool name > raw claim generator
@@ -405,14 +407,11 @@ function collectActionsDeep(store, manifestLabel, seen = new Set()) {
 }
 
 /**
- * Classify content provenance into one of four buckets, or null if neither
- * `manifestLabel` nor any ingredient beneath it carries action history to
- * classify from.
+ * @param {object[]} actions  Pre-collected actions (see collectActionsDeep).
  * @returns {'authentic'|'edited'|'ai_edited'|'ai_generated'|null}
  */
-export function classifyContent(store, manifestLabel) {
-  const actions = collectActionsDeep(store, manifestLabel);
-  if (actions.length === 0) return null;
+export function classifyContentFromActions(actions) {
+  if (!actions || actions.length === 0) return null;
 
   const sourceTypes = actions.map(a => a?.digitalSourceType ?? '');
 
@@ -425,4 +424,56 @@ export function classifyContent(store, manifestLabel) {
 
   const hasEditAction = actions.some(a => a?.action && !NON_EDIT_ACTIONS.has(a.action));
   return hasEditAction ? 'edited' : 'authentic';
+}
+
+/**
+ * Classify content provenance into one of four buckets, or null if neither
+ * `manifestLabel` nor any ingredient beneath it carries action history to
+ * classify from.
+ * @returns {'authentic'|'edited'|'ai_edited'|'ai_generated'|null}
+ */
+export function classifyContent(store, manifestLabel) {
+  return classifyContentFromActions(collectActionsDeep(store, manifestLabel));
+}
+
+// Human-readable labels for common C2PA action codes, used for the
+// "content history" fact shown in the detail popup. Falls back to a
+// generic title-cased label (stripping the "c2pa." prefix) for any action
+// code not listed here — the vocabulary is large and still growing.
+const ACTION_LABELS = {
+  'c2pa.created':            'Created',
+  'c2pa.opened':             'Opened',
+  'c2pa.converted':          'Converted',
+  'c2pa.copied':             'Copied',
+  'c2pa.cropped':            'Cropped',
+  'c2pa.resized':            'Resized',
+  'c2pa.filtered':           'Filtered',
+  'c2pa.color_adjustments':  'Color adjusted',
+  'c2pa.drawing':            'Drawing added',
+  'c2pa.edited':             'Edited',
+  'c2pa.orientation':        'Orientation changed',
+  'c2pa.published':          'Published',
+  'c2pa.repackaged':         'Repackaged',
+};
+
+function titleCase(s) {
+  return s.replace(/[._-]+/g, ' ').trim().replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function describeAction(action) {
+  const code = action?.action ?? '';
+  const base = ACTION_LABELS[code] ?? (code ? titleCase(code.replace(/^c2pa\./, '')) : 'Unknown action');
+
+  const agent = typeof action.softwareAgent === 'string' ? action.softwareAgent : action.softwareAgent?.name;
+  const dst = action?.digitalSourceType ?? '';
+  const isAi = [...AI_GENERATED_SOURCE_TYPES, ...AI_EDITED_SOURCE_TYPES].some(t => dst.includes(t));
+
+  let label = agent ? `${base} by ${agent}` : base;
+  if (isAi) label += ' (AI)';
+  return label;
+}
+
+/** @param {object[]} actions  Pre-collected actions (see collectActionsDeep). */
+export function describeActions(actions) {
+  return (actions ?? []).map(describeAction);
 }
