@@ -101,7 +101,8 @@ One job, **Build and static checks** (Ubuntu, Node 20), runs in order:
    generated bundles. This is what catches errors in files the build never
    compiles: the content script, popup, detail page and test-bench `app.js`.
    Classic scripts are parsed as classic scripts, modules as modules.
-4. `npm test` — only if `package.json` defines a `test` script.
+4. `npm test` — the unit tests (see [Tests](#tests)). The step skips itself if
+   `package.json` ever loses its `test` script.
 
 Run the same checks locally, in the same order:
 
@@ -109,7 +110,7 @@ Run the same checks locally, in the same order:
 npm ci
 npm run build
 node scripts/check-syntax.mjs
-npm test        # only once a test script exists
+npm test
 ```
 
 `npm run build` already fails loudly if it cannot write `extension/dist/`; the
@@ -124,6 +125,47 @@ before merging** → search for and select **Build and static checks** → Save
 changes. (On repos using rulesets instead: Settings → Rules → Rulesets →
 the `main` ruleset → **Require status checks to pass** → Add checks →
 **Build and static checks**.)
+
+### Tests
+
+```bash
+npm run build && npm test
+```
+
+`npm test` runs the unit tests in `tests/unit/` with Node's built-in runner
+(`node:test`, `node:assert/strict`): no test framework, no browser, no
+network. It takes about a second on Node 20 and 24. The build isn't strictly
+needed (the tests import `extension/src/` directly), but it is the order CI
+uses.
+
+What is covered:
+
+- **Status mapping:** `determineStatus()` on the real pre-extracted manifests
+  in `test-assets/trusted/manifest-*` and on synthetic stores.
+- **Content classification:** the content classifiers, and `verify()` itself
+  with a stand-in SDK (so no WASM runs).
+- **Shared modules:** badge map, status labels, messages and constants.
+- **Background:** result cache, scan queue, tab media registry, and
+  `fetchAsBytes` with a stubbed `fetch`.
+
+Popup, content-script and detail-page rendering need a browser and are not
+covered here.
+
+Tests named `KNOWN ISSUE …` pin current behaviour that is known to be wrong
+(finding-001, and the popup vs in-page badge disagreement). When the fix
+lands, the test must be updated along with it. Tests marked `# TODO` show the
+behaviour we want but don't have yet; they are reported but don't fail the
+run.
+
+**Adding a test:** create `tests/unit/<name>.test.mjs`. `scripts/run-tests.mjs`
+picks up every `*.test.mjs` under `tests/`, so there's nothing to register.
+Shared helpers (manifest fixtures, a `chrome` stub, a fake clock, the stand-in
+SDK) live in `tests/unit/helpers/`. Mark any hand-made trusted result
+"SYNTHETIC — not a real trusted asset".
+
+`scripts/test-status-mapping.mjs` is superseded by
+`tests/unit/determine-status.test.mjs` but kept for reference. It always exits
+0, so don't rely on it as a check.
 
 ## Architecture
 
