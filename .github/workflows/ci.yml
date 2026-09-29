@@ -1,0 +1,69 @@
+# Minimal CI: install, build, and static checks on every PR to main and every
+# push to main. Dependabot PRs target main, so they get the same checks.
+#
+# Read-only: no secrets, no deploy, no publish. See README "Continuous
+# integration" for running the same steps locally and for branch protection.
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# A newer push to the same PR supersedes the older run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    # This name is the status check to require in branch protection.
+    name: Build and static checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+
+      # Fails if package-lock.json is out of sync with package.json.
+      # postinstall also builds the test-bench bundle (c2pa-test-bench/build.mjs).
+      - name: Install (npm ci)
+        run: npm ci
+
+      - name: Build extension
+        run: npm run build
+
+      - name: Check build output exists
+        run: |
+          for f in extension/dist/service-worker.js extension/dist/offscreen.js; do
+            if [ ! -s "$f" ]; then
+              echo "::error file=$f::missing or empty after npm run build"
+              exit 1
+            fi
+            ls -l "$f"
+          done
+
+      - name: Syntax check (content script, popup, detail, scripts, test bench)
+        run: node scripts/check-syntax.mjs
+
+      # No test script exists yet; this step starts running automatically once
+      # one is added to package.json.
+      - name: Tests (npm test, if defined)
+        run: |
+          if [ "$(npm pkg get scripts.test)" = "{}" ]; then
+            echo "No test script in package.json; skipping."
+          else
+            npm test
+          fi
