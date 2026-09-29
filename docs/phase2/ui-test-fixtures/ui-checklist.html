@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<!--
+  Fixture page for docs/phase2/ui-test-checklist.md. Serve the REPO ROOT on
+  127.0.0.1 (see the checklist) and open
+  http://127.0.0.1:8080/docs/phase2/ui-test-fixtures/ui-checklist.html
+
+  Every image is an existing committed fixture; nothing is fetched from off
+  the machine. Query strings (?case=…) give each <img> a distinct URL: the
+  content script badges only the FIRST <img> matching a result URL, so reusing
+  one URL would badge one image and silently skip the rest.
+
+  Every element whose position the layout check measures carries data-case.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>C2PA UI checklist fixture</title>
+<style>
+  body { font: 15px/1.5 system-ui, sans-serif; max-width: 900px; margin: 24px auto; padding: 0 16px; }
+  section { border-top: 1px solid #ccc; padding: 12px 0 20px; overflow: hidden; }
+  h2 { font-size: 16px; margin: 0 0 8px; }
+  .probe { background: #ffe9a8; }
+
+  /* B. floated image with text wrapping around it */
+  .float-left { float: left; width: 180px; margin: 0 12px 8px 0; }
+
+  /* C. object-fit: fixed box, cover crop */
+  .cover { width: 200px; height: 120px; object-fit: cover; display: block; }
+
+  /* D. responsive: percentage width inside a fixed-width box */
+  .box-300 { width: 300px; border: 1px dashed #999; }
+  .fluid { width: 100%; height: auto; display: block; }
+
+  /* E. child-combinator gallery: the wrapper span breaks `.gallery > img` */
+  .gallery { display: flex; gap: 8px; }
+  .gallery > img { width: 140px; height: 100px; object-fit: cover; }
+
+  /* F. aggressive host CSS: !important beats the wrapper's inline styles */
+  .aggressive span { display: block !important; padding: 10px !important; border: 3px solid red !important; }
+  .aggressive img  { max-width: 160px !important; vertical-align: middle !important; }
+</style>
+</head>
+<body>
+<h1>C2PA UI checklist fixture</h1>
+<p>Real-verification sections (A–H) use committed fixtures. Section S is for
+the <strong>SYNTHETIC</strong> injection step only.</p>
+
+<section>
+  <h2>A. Inline image in running text</h2>
+  <p>Before the image
+    <img data-case="A-img" src="../../../test-assets/test-signed.jpg?case=A" width="120" alt="A">
+    <span data-case="A-probe" class="probe">text right after the image</span>.</p>
+</section>
+
+<section>
+  <h2>B. Floated image</h2>
+  <img data-case="B-img" class="float-left" src="../../../test-assets/test-signed.jpg?case=B" alt="B">
+  <p data-case="B-probe" class="probe">This paragraph should wrap to the right of the floated image.
+    If the image stops floating after the badge is added, this paragraph moves
+    below it instead. Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+</section>
+
+<section>
+  <h2>C. object-fit: cover</h2>
+  <img data-case="C-img" class="cover" src="../../../test-assets/test-signed.jpg?case=C" alt="C">
+  <p data-case="C-probe" class="probe">Directly under the 200×120 box.</p>
+</section>
+
+<section>
+  <h2>D. Percentage width (100% of a 300px box)</h2>
+  <div class="box-300">
+    <img data-case="D-img" class="fluid" src="../../../test-assets/test-signed.jpg?case=D" alt="D">
+  </div>
+  <p data-case="D-probe" class="probe">Under the box.</p>
+</section>
+
+<section>
+  <h2>E. Flex gallery styled with <code>.gallery &gt; img</code></h2>
+  <div class="gallery">
+    <img data-case="E-img1" src="../../../test-assets/test-signed.jpg?case=E1" alt="E1">
+    <img data-case="E-img2" src="../../../test-assets/no-manifest/cloudmountain.jpg?case=E2" alt="E2">
+  </div>
+  <p data-case="E-probe" class="probe">Under the gallery.</p>
+</section>
+
+<section class="aggressive">
+  <h2>F. Aggressive host CSS (<code>span { display:block !important }</code>)</h2>
+  <p>Inline <img data-case="F-img" src="../../../test-assets/test-signed.jpg?case=F" alt="F">
+    <span class="probe" data-case="F-probe">probe</span></p>
+</section>
+
+<section>
+  <h2>G. Control — no credentials (must never be wrapped or badged)</h2>
+  <img data-case="G-img" src="../../../test-assets/no-manifest/cloudmountain.jpg?case=G" width="160" alt="G">
+  <span data-case="G-probe" class="probe">probe</span>
+</section>
+
+<section>
+  <h2>H. Popup vs in-page agreement — ChatGPTgen.png</h2>
+  <img data-case="H-img" src="../../../test-assets/trusted/ChatGPTgen.png" width="200" alt="H">
+</section>
+
+<section>
+  <h2>S. SYNTHETIC — not a real trusted asset</h2>
+  <p>These are the no-credentials image under distinct URLs, so a real scan
+  never badges them. Any badge here came from the synthetic
+  <code>SCAN_COMPLETE</code> message in checklist step 8.</p>
+  <img data-synthetic="1" src="../../../test-assets/no-manifest/cloudmountain.jpg?synthetic=1" width="110" alt="S1">
+  <img data-synthetic="2" src="../../../test-assets/no-manifest/cloudmountain.jpg?synthetic=2" width="110" alt="S2">
+  <img data-synthetic="3" src="../../../test-assets/no-manifest/cloudmountain.jpg?synthetic=3" width="110" alt="S3">
+  <img data-synthetic="4" src="../../../test-assets/no-manifest/cloudmountain.jpg?synthetic=4" width="110" alt="S4">
+  <img data-synthetic="5" src="../../../test-assets/no-manifest/cloudmountain.jpg?synthetic=5" width="110" alt="S5">
+  <img data-synthetic="6" src="../../../test-assets/no-manifest/cloudmountain.jpg?synthetic=6" width="110" alt="S6">
+  <img data-synthetic="7" src="../../../test-assets/no-manifest/cloudmountain.jpg?synthetic=7" width="110" alt="S7">
+  <img data-synthetic="8" src="../../../test-assets/no-manifest/cloudmountain.jpg?synthetic=8" width="110" alt="S8">
+  <img data-synthetic="9" src="../../../test-assets/no-manifest/cloudmountain.jpg?synthetic=9" width="110" alt="S9">
+</section>
+</body>
+</html>
