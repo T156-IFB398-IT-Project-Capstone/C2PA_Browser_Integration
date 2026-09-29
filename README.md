@@ -151,11 +151,13 @@ What is covered:
 Popup, content-script and detail-page rendering need a browser and are not
 covered here.
 
-Tests named `KNOWN ISSUE …` pin current behaviour that is known to be wrong
-(finding-001, and the popup vs in-page badge disagreement). When the fix
-lands, the test must be updated along with it. Tests marked `# TODO` show the
-behaviour we want but don't have yet; they are reported but don't fail the
-run.
+Tests named `KNOWN ISSUE …` pin current behaviour that is known to be wrong:
+finding-001, and the popup Shield reading "authentic" for a manifest with no
+action history. When the fix lands, the test must be updated along with it.
+Tests marked `# TODO` show the behaviour we want but don't have yet; they are
+reported but don't fail the run. `tests/unit/detector-agreement.test.mjs`
+checks that the popup Shield and the in-page badge give the same answer for
+every real manifest and for synthetic ingredient chains.
 
 **Adding a test:** create `tests/unit/<name>.test.mjs`. `scripts/run-tests.mjs`
 picks up every `*.test.mjs` under `tests/`, so there's nothing to register.

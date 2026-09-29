@@ -195,10 +195,13 @@ function extractManifest(store) {
   if (!m) return null;
 
   const creator = extractCreator(m);
+  // One ingredient-aware action list feeds BOTH detectors, so the popup Shield
+  // (ai_source_type / has_non_ai_edit) and the in-page badge (contentCategory)
+  // cannot disagree. See the design note above analyzeActions().
   const actions = collectActionsDeep(store, label);
   const contentCategory = classifyContentFromActions(actions);
   const contentHistory = describeActions(actions);
-  const { ai_disclosure, ai_source_type, has_non_ai_edit } = analyzeActions(m.assertions);
+  const { ai_disclosure, ai_source_type, has_non_ai_edit } = analyzeActions(actions);
   const signer        = m.signature_info?.common_name
     ? {
         common_name: m.signature_info.common_name,
@@ -224,10 +227,11 @@ function extractManifest(store) {
     expired: isCertExpired,
   };
 
-  // Two orthogonal axes, both consumed downstream: the AI-disclosure fields
-  // feed shared/badge-map.js and detail/detail.js, while contentCategory /
-  // contentHistory feed content/content-script.js. Returning only one set
-  // silently degrades the other's rendering.
+  // Two views of the SAME action history, both consumed downstream: the
+  // AI-disclosure fields feed shared/badge-map.js, detail/detail.js, the popup
+  // meta line and the test bench, while contentCategory / contentHistory feed
+  // content/content-script.js. Returning only one set silently degrades the
+  // other's rendering.
   return {
     creator,
     ai_disclosure, ai_source_type, has_non_ai_edit,
@@ -352,49 +356,6 @@ function extractValidity(store, manifest) {
   };
 }
 
-// Inspect c2pa.actions / c2pa.actions.v2 assertion data for IPTC
-// digitalSourceType values (AI involvement) and non-AI edit action verbs.
-// Real-world AI manifests (ChatGPT, Firefly, Sora) embed digitalSourceType in
-// action objects, not in the assertion label — label-pattern matching misses
-// them entirely.
-//
-// ai_source_type distinguishes fully-generated from AI-assisted-edit content
-// (needed for the Shield AI-Generated vs AI-Edited badge distinction — a
-// boolean alone can't tell them apart). has_non_ai_edit flags a declared,
-// non-AI edit action (crop, color adjustment, etc.) for the
-// Authentic-but-Edited badge. Both are additive to the existing ai_disclosure
-// boolean, not a replacement — nothing that already reads ai_disclosure
-// needs to change.
-function analyzeActions(assertions) {
-  const result = { ai_disclosure: false, ai_source_type: null, has_non_ai_edit: false };
-  if (!Array.isArray(assertions)) return result;
-
-  const AI_GENERATED_TYPES = ['trainedAlgorithmicMedia', 'algorithmicMedia'];
-  const AI_COMPOSITE_TYPES = ['compositeWithTrainedAlgorithmicMedia'];
-  const NON_EDIT_ACTIONS   = new Set(['c2pa.created', 'c2pa.opened']);
-
-  for (const assertion of assertions) {
-    if (!/^c2pa\.actions(\.v\d+)?$/.test(assertion?.label ?? '')) continue;
-    const actions = assertion?.data?.actions;
-    if (!Array.isArray(actions)) continue;
-
-    for (const action of actions) {
-      const dst = action?.digitalSourceType ?? '';
-      if (AI_GENERATED_TYPES.some(t => dst.includes(t))) {
-        result.ai_disclosure = true;
-        result.ai_source_type = 'generated';
-      } else if (AI_COMPOSITE_TYPES.some(t => dst.includes(t))) {
-        result.ai_disclosure = true;
-        if (result.ai_source_type !== 'generated') result.ai_source_type = 'composite';
-      } else if (!NON_EDIT_ACTIONS.has(action?.action ?? '')) {
-        result.has_non_ai_edit = true;
-      }
-    }
-  }
-
-  return result;
-}
-
 // ── Content provenance classification ────────────────────────────────────────
 //
 // A separate axis from VERIFY_STATUS / determineStatus() above. That function
@@ -472,6 +433,65 @@ export function classifyContentFromActions(actions) {
 
   const hasEditAction = actions.some(a => a?.action && !NON_EDIT_ACTIONS.has(a.action));
   return hasEditAction ? 'edited' : 'authentic';
+}
+
+// ── AI-disclosure fields for the Shield badge (WI-2 design note) ─────────────
+//
+// analyzeActions() produces ai_disclosure / ai_source_type / has_non_ai_edit
+// (read by shared/badge-map.js, detail.js, the popup meta line, the test
+// bench). It used to read the ACTIVE manifest's assertions only, with its own
+// constant sets, while classifyContentFromActions() walked ingredients. For
+// ChatGPTgen.png — a wrapper manifest that only says "c2pa.opened" around an
+// ingredient that declares trainedAlgorithmicMedia — the popup Shield said
+// "authentic" while the in-page badge said "ai_generated".
+//
+// Now both take the same collectActionsDeep() list and the same constants
+// above, so their precedence matches by construction:
+//   contentCategory  ai_generated | ai_edited  | edited           | authentic
+//   Shield state     ai_generated | ai_edited  | authentic_edited | authentic
+// Consequences, applied to both outputs:
+//   - an edit or AI disclosure anywhere in the ingredient chain counts, the
+//     same as it already did for contentCategory (including a source photo's
+//     own earlier edits);
+//   - c2pa.published is NOT an edit (it records distribution, not a change
+//     to the content) — previously an edit for the Shield only;
+//   - an action with no action code is not an edit — previously an edit for
+//     the Shield only.
+// Not covered: a manifest with no action history at all gives
+// contentCategory null, but pickBadgeState() still returns "authentic" for it.
+// That is badge-map.js's rule, not this file's.
+//
+// Measured with verify() on test-assets/trusted/manifest-* (before -> after;
+// columns: ai_disclosure, ai_source_type, has_non_ai_edit | contentCategory | Shield):
+//   car          false,null,true   | edited       | authentic_edited  (unchanged)
+//   ChatGPTgen   false,null,false  | ai_generated | authentic
+//            ->  true,generated,true | ai_generated | ai_generated
+//   cloudscape   false,null,true   | edited       | authentic_edited  (unchanged)
+//   crater-lake  false,null,true   | edited       | authentic_edited  (unchanged)
+//   Firefly-cat  true,generated,false | ai_generated | ai_generated  (unchanged)
+//   sora         true,generated,false | ai_generated | ai_generated  (unchanged)
+// (ChatGPTgen's has_non_ai_edit becomes true from the ingredient's
+// c2pa.converted action; the Shield is unaffected, as generated outranks it.)
+
+/** @param {object[]} actions  Pre-collected actions (see collectActionsDeep). */
+function analyzeActions(actions) {
+  const result = { ai_disclosure: false, ai_source_type: null, has_non_ai_edit: false };
+  if (!Array.isArray(actions)) return result;
+
+  for (const action of actions) {
+    const dst = action?.digitalSourceType ?? '';
+    if (AI_GENERATED_SOURCE_TYPES.some(t => dst.includes(t))) {
+      result.ai_disclosure = true;
+      result.ai_source_type = 'generated';
+    } else if (AI_EDITED_SOURCE_TYPES.some(t => dst.includes(t))) {
+      result.ai_disclosure = true;
+      if (result.ai_source_type !== 'generated') result.ai_source_type = 'composite';
+    } else if (action?.action && !NON_EDIT_ACTIONS.has(action.action)) {
+      result.has_non_ai_edit = true;
+    }
+  }
+
+  return result;
 }
 
 /**

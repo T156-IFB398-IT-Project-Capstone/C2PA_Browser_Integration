@@ -97,30 +97,29 @@ describe('analyzeActions (via verify)', () => {
     assert.equal((await verifyStore(storeWithActions([generated, composite]))).manifest.ai_source_type, 'generated');
   });
 
-  // analyzeActions treats c2pa.published as an edit; classifyContentFromActions
-  // does not (two different NON_EDIT_ACTIONS sets in offscreen.js).
-  test('KNOWN ISSUE: c2pa.published is an edit for the popup but not for the in-page badge', async () => {
+  // Was a KNOWN ISSUE before WI-2: analyzeActions had its own non-edit set
+  // without c2pa.published. Both detectors now share one set.
+  test('c2pa.published is not an edit for the popup or the in-page badge', async () => {
     const { manifest } = await verifyStore(storeWithActions([{ action: 'c2pa.created' }, { action: 'c2pa.published' }]));
-    assert.equal(manifest.has_non_ai_edit, true);
+    assert.equal(manifest.has_non_ai_edit, false);
     assert.equal(manifest.contentCategory, 'authentic');
   });
 });
 
 describe('popup Shield vs in-page category', () => {
   // ChatGPTgen.png: the active manifest only says "c2pa.opened"; the AI
-  // generation is declared on its ingredient. analyzeActions() (popup Shield,
-  // via badge-map.js) reads the active manifest only; classifyContentFromActions()
-  // (in-page badge) walks ingredients. Result: the popup shows "Authentic" for
-  // an AI-generated image. Fix belongs to WI-2 (detector unification).
-  test('KNOWN ISSUE (WI-2): ChatGPTgen — popup Shield says authentic, in-page says ai_generated', async () => {
+  // generation is declared on its ingredient. Before WI-2 the popup Shield
+  // read the active manifest only and showed "authentic" for this AI-generated
+  // image. Both detectors now walk the ingredient chain.
+  test('ChatGPTgen — AI generation declared on an ingredient reaches the popup Shield fields', async () => {
     const result = await verifyStore(loadManifest('ChatGPTgen'), 'image/png');
-    assert.equal(result.manifest.ai_disclosure, false);
-    assert.equal(result.manifest.ai_source_type, null);
-    assert.equal(pickBadgeState(result), 'authentic');
+    assert.equal(result.manifest.ai_disclosure, true);
+    assert.equal(result.manifest.ai_source_type, 'generated');
+    assert.equal(pickBadgeState(result), 'ai_generated');
     assert.equal(result.manifest.contentCategory, 'ai_generated');
   });
 
-  test('ChatGPTgen — popup Shield and in-page category agree (WI-2 detector unification)', { todo: true }, async () => {
+  test('ChatGPTgen — popup Shield and in-page category agree (WI-2 detector unification)', async () => {
     const result = await verifyStore(loadManifest('ChatGPTgen'), 'image/png');
     assert.equal(pickBadgeState(result), 'ai_generated');
   });
