@@ -85,6 +85,46 @@ npm run build         # one-shot production build of the extension
 npm run build:watch   # extension watcher only, without the test-bench server
 ```
 
+## Continuous integration
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every pull
+request to `main` (Dependabot's included) and every push to `main`. It has
+read-only permissions and uses no secrets; it builds and checks, nothing more.
+One job, **Build and static checks** (Ubuntu, Node 20), runs in order:
+
+1. `npm ci` — fails if `package-lock.json` is out of sync; its postinstall also
+   builds the test-bench bundle.
+2. `npm run build`, then fails if `extension/dist/service-worker.js` or
+   `extension/dist/offscreen.js` is missing.
+3. `node scripts/check-syntax.mjs` — parses (never runs) every `.js`/`.mjs`
+   file under `extension/src/`, `scripts/` and `c2pa-test-bench/`, skipping
+   generated bundles. This is what catches errors in files the build never
+   compiles: the content script, popup, detail page and test-bench `app.js`.
+   Classic scripts are parsed as classic scripts, modules as modules.
+4. `npm test` — only if `package.json` defines a `test` script.
+
+Run the same checks locally, in the same order:
+
+```bash
+npm ci
+npm run build
+node scripts/check-syntax.mjs
+npm test        # only once a test script exists
+```
+
+`npm run build` already fails loudly if it cannot write `extension/dist/`; the
+CI existence check is a backstop. To check by hand: `ls extension/dist`
+(PowerShell: `Test-Path extension/dist/service-worker.js, extension/dist/offscreen.js`).
+
+**Requiring the check before merge** (a repo admin does this once, after the
+workflow has run at least once — GitHub only offers a check name it has seen):
+Settings → Branches → Branch protection rules → Add rule (or edit the `main`
+rule) → Branch name pattern `main` → tick **Require status checks to pass
+before merging** → search for and select **Build and static checks** → Save
+changes. (On repos using rulesets instead: Settings → Rules → Rulesets →
+the `main` ruleset → **Require status checks to pass** → Add checks →
+**Build and static checks**.)
+
 ## Architecture
 
 ```text
