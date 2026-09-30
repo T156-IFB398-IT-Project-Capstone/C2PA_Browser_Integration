@@ -279,15 +279,17 @@
     }
 
     if (message?.type === MSG_SCAN_COMPLETE) {
-      // Background finished verifying — annotate any <img> whose result
-      // resolves to a badge (see pickBadge: trust-gated content category,
-      // or "unverifiable", or nothing).
+      // Background finished verifying — annotate any <img> or <video> whose
+      // result resolves to a badge (see pickBadge: trust-gated content
+      // category, or "unverifiable", or nothing). res.kind is carried through
+      // from discoverMedia() by the service worker's scan results, so a
+      // video result is matched against <video>/<source> rather than <img>.
       const results = message.payload?.summary?.results ?? [];
       for (const res of results) {
         const badge = pickBadge(res);
         if (!badge) continue;
-        const img = findImageForUrl(res.sourceUrl);
-        if (img) addCornerBadge(img, badge.key, badge.url, res);
+        const el = findElementForMediaUrl(res.sourceUrl, res.kind);
+        if (el) addCornerBadge(el, badge.key, badge.url, res);
       }
       return false;
     }
@@ -498,12 +500,14 @@
 
   const RESET = 'all:initial;box-sizing:border-box;font-family:system-ui,sans-serif;';
 
-  function buildTooltip(wrapper) {
+  // `vertical` is 'bottom' (tooltip opens upward from a bottom-corner badge)
+  // or 'top' (opens downward from a top-corner badge — used on <video>).
+  function buildTooltip(wrapper, vertical = 'bottom') {
     const tooltip = document.createElement('div');
     tooltip.dataset.c2paTooltip = '1';
     tooltip.style.cssText =
       RESET +
-      'display:block;position:absolute;right:4px;bottom:36px;width:240px;' +
+      `display:block;position:absolute;right:4px;${vertical}:36px;width:240px;` +
       'background:#26262a;color:#eee;border:1px solid #3a3a3f;border-radius:10px;' +
       'padding:12px 12px 34px 12px;font-size:12px;line-height:1.5;' +
       'box-shadow:0 8px 24px rgba(0,0,0,.4);opacity:0;pointer-events:none;' +
@@ -534,10 +538,10 @@
     return { tooltip, ...refs };
   }
 
-  function ensureTooltipEls(wrapper) {
+  function ensureTooltipEls(wrapper, vertical) {
     const existing = wrapper.querySelector(':scope > [data-c2pa-tooltip]');
     if (existing?._c2paRefs) return { tooltip: existing, ...existing._c2paRefs };
-    return buildTooltip(wrapper);
+    return buildTooltip(wrapper, vertical);
   }
 
   function showTooltip(tooltip) {
@@ -632,6 +636,11 @@
 
     if (imgEl.dataset.c2paBadge === badgeKey) return; // already showing this badge
 
+    // A <video controls> keeps its fullscreen/menu buttons in the bottom-right
+    // corner, so pin the badge (and its tooltip) to the top-right instead.
+    const isVideo = imgEl.tagName === 'VIDEO';
+    const vertical = isVideo ? 'top' : 'bottom';
+
     let wrapper = imgEl.parentElement;
     let badge = wrapper?.dataset?.c2paBadgeWrapper === '1'
       ? wrapper.querySelector(':scope > img[data-c2pa-badge-icon]')
@@ -650,12 +659,19 @@
       // span throws that away and the image snaps to the left edge, so the
       // wrapper has to take the centring over in that case.
       const isImageDoc = document.contentType?.startsWith('image/');
+      // A block-level <video> sized with a percentage width (e.g. width:100%)
+      // collapses inside a shrink-to-fit inline-block — unlike an <img>, it
+      // has no large intrinsic width to fall back on — so give it a block
+      // wrapper that fills the same container the video did.
+      const isBlockVideo = isVideo && getComputedStyle(imgEl).display === 'block';
       wrapper.style.cssText =
         'all:initial;position:relative;line-height:0;' +
         'background:transparent;border:none;box-shadow:none;padding:0;' +
         (isImageDoc
           ? 'display:block;margin:auto;width:fit-content;'
-          : 'display:inline-block;margin:0;');
+          : isBlockVideo
+            ? 'display:block;margin:0;'
+            : 'display:inline-block;margin:0;');
       imgEl.parentNode.insertBefore(wrapper, imgEl);
       wrapper.appendChild(imgEl);
     }
@@ -665,7 +681,7 @@
       badge.dataset.c2paBadgeIcon = '1';
       badge.style.cssText =
         'all:initial;position:absolute;' +
-        `right:${margin}px;bottom:${margin}px;` +
+        `right:${margin}px;${vertical}:${margin}px;` +
         `width:${size}px;height:${size}px;object-fit:contain;` +
         'background:transparent;border:none;box-shadow:none;padding:0;margin:0;' +
         'cursor:pointer;pointer-events:auto;z-index:2147483647;';
@@ -675,7 +691,7 @@
     badge.src = logoUrl;
     badge.alt = `C2PA status: ${badgeKey}`;
 
-    const { tooltip, headline, body, moreBtn } = ensureTooltipEls(wrapper);
+    const { tooltip, headline, body, moreBtn } = ensureTooltipEls(wrapper, vertical);
     const summary = summarizeResult(badgeKey, res);
     headline.textContent = summary.headline;
     body.textContent = summary.body;
