@@ -44,10 +44,18 @@ fix, out of scope for this measurement task.
    `service-worker.js`/`offscreen.js`).
 2. `node docs/phase2/performance-harness-evidence/perf-server.mjs` — serves
    `http://127.0.0.1:8975/{single-image,single-video,heavy-page}.html`.
-3. Load the unpacked extension (`chrome://extensions` → Developer mode →
-   Load unpacked → `extension/`) — same manual step as the Sprint 2 harness;
-   automated `--load-extension` navigation is blocked by this machine's
-   Chrome policy (SPIKE-001 "Run 2").
+3. Load the unpacked extension **manually** (`chrome://extensions` →
+   Developer mode → Load unpacked → `extension/`, the folder holding
+   `manifest.json`). Do not rely on `--load-extension`: Chrome 137+ ignores
+   that flag in branded Google Chrome builds, so a launch that passes it
+   silently starts without the extension (SPIKE-001 "Run 2" hit this
+   symptom). Use a throwaway profile so other extensions and cached state
+   don't skew results:
+   ```cmd
+   "C:\Program Files\Google\Chrome\Application\chrome.exe" --user-data-dir="%TEMP%\c2pa-perf-profile" --no-first-run --enable-precise-memory-info
+   ```
+   `--enable-precise-memory-info` stops Chrome quantising
+   `performance.memory`; without it, heap readings are coarse buckets.
 4. Navigate to each scenario page, open the popup, click "Scan this page".
    Wait for the scan to finish (`heavy-page.html` will take noticeably
    longer — 100 items, `SCAN_CONCURRENCY = 3`).
@@ -55,13 +63,27 @@ fix, out of scope for this measurement task.
    console (`chrome://extensions` → the extension card → "service worker"
    link):
    ```js
-   chrome.storage.local.get('c2pa.perf_log').then(r => copy(JSON.stringify(r['c2pa.perf_log'])))
+   l = JSON.stringify((await chrome.storage.local.get('c2pa.perf_log'))['c2pa.perf_log'] ?? []); JSON.parse(l).length
+   ```
+   prints the entry count, then, as a **separate** command on its own line:
+   ```js
+   copy(l)
    ```
    `copy()` is a Chrome DevTools console helper — puts the JSON on the
-   clipboard. Paste it into a `results-<date>.json` file in this folder.
-6. To reset between scenarios (so `heavy-page.html`'s 100 entries don't mix
+   clipboard (it prints `undefined` on success). It is only defined in a
+   plain top-level command: inside a `.then()` callback, or on the same line
+   as an `await`, it fails with `ReferenceError: copy is not defined`. Paste it into `perf/results/<date>/raw/<scenario>-run<N>.json`
+   (`single-cold`, `single-warm` or `heavy`), then run
+   `node perf/analyze.mjs perf/results/<date>` to produce `results.json`.
+6. To reset between runs (so `heavy-page.html`'s 100 entries don't mix
    with the single-item runs in the same log): `chrome.storage.local.remove('c2pa.perf_log')`
-   in the same console, before starting the next scenario.
+   in the same console, before starting the next run.
+
+**Cold vs warm.** The offscreen document creates the c2pa-web SDK lazily, on
+the first verification after the extension starts. A *cold* run is the first
+scan after reloading the extension on `chrome://extensions` (SDK start-up
+lands in that item's `messageRoundTripMs`, not `wasmVerifyMs`). A *warm* run
+is a further scan with no reload in between.
 
 ## Regenerating the heavy test page
 

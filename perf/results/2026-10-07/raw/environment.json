@@ -1,0 +1,15 @@
+{
+  "date": "2026-10-07",
+  "commit": "654a59dc5936779bfc2599720040452ac14b60c1",
+  "commitNote": "main after PR #23 (MP4 badge integration); measured from branch perf/run-2026-10-07, extension code identical to main",
+  "c2paWebVersion": "0.13.1 (package-lock.json)",
+  "chrome": "154.0.8037.98 (Official Build) (64-bit), Stable, V8 15.4.80.20 (from chrome://version)",
+  "chromeFlags": "--user-data-dir=%TEMP%\\c2pa-perf-profile (fresh profile) --no-first-run --enable-precise-memory-info (confirmed in chrome://version Command Line)",
+  "extensionLoad": "Load unpacked via chrome://extensions (Chrome 137+ ignores --load-extension)",
+  "os": "Microsoft Windows 11 Home, Version 24H2, build 26100, 64-bit",
+  "cpu": "Intel Core i7-10750H @ 2.60GHz, 6 cores / 12 threads",
+  "ramGB": 15.8,
+  "node": "v24.15.0 (build + static server only)",
+  "server": "docs/phase2/performance-harness-evidence/perf-server.mjs on 127.0.0.1:8975 (localhost, no network latency)",
+  "scanConcurrency": 3
+}

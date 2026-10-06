@@ -1,0 +1,340 @@
+{
+  "generatedBy": "node perf/analyze.mjs perf/results/2026-10-07",
+  "environment": {
+    "date": "2026-10-07",
+    "commit": "654a59dc5936779bfc2599720040452ac14b60c1",
+    "commitNote": "main after PR #23 (MP4 badge integration); measured from branch perf/run-2026-10-07, extension code identical to main",
+    "c2paWebVersion": "0.13.1 (package-lock.json)",
+    "chrome": "154.0.8037.98 (Official Build) (64-bit), Stable, V8 15.4.80.20 (from chrome://version)",
+    "chromeFlags": "--user-data-dir=%TEMP%\\c2pa-perf-profile (fresh profile) --no-first-run --enable-precise-memory-info (confirmed in chrome://version Command Line)",
+    "extensionLoad": "Load unpacked via chrome://extensions (Chrome 137+ ignores --load-extension)",
+    "os": "Microsoft Windows 11 Home, Version 24H2, build 26100, 64-bit",
+    "cpu": "Intel Core i7-10750H @ 2.60GHz, 6 cores / 12 threads",
+    "ramGB": 15.8,
+    "node": "v24.15.0 (build + static server only)",
+    "server": "docs/phase2/performance-harness-evidence/perf-server.mjs on 127.0.0.1:8975 (localhost, no network latency)",
+    "scanConcurrency": 3
+  },
+  "singleItem": {
+    "cold": {
+      "n": 3,
+      "medians": {
+        "detectToResultMs": 87,
+        "verifyOnlyMs": 22.6,
+        "totalMs": 87,
+        "fetchMs": 7.6,
+        "messageRoundTripMs": 76,
+        "heapBeforeMB": 27.2,
+        "heapAfterMB": 27.1
+      },
+      "runs": [
+        {
+          "file": "single-cold-run1.json",
+          "url": "http://127.0.0.1:8975/fixtures/car.jpg?i=1",
+          "status": "verified_tsa",
+          "byteLength": 580124,
+          "detectToResultMs": 85,
+          "verifyOnlyMs": 16,
+          "totalMs": 85,
+          "fetchMs": 6.3,
+          "messageRoundTripMs": 76,
+          "heapBeforeMB": 26.98,
+          "heapAfterMB": 31.12
+        },
+        {
+          "file": "single-cold-run2.json",
+          "url": "http://127.0.0.1:8975/fixtures/car.jpg?i=1",
+          "status": "verified_tsa",
+          "byteLength": 580124,
+          "detectToResultMs": 87,
+          "verifyOnlyMs": 23.3,
+          "totalMs": 87,
+          "fetchMs": 7.6,
+          "messageRoundTripMs": 78.6,
+          "heapBeforeMB": 27.44,
+          "heapAfterMB": 27.1
+        },
+        {
+          "file": "single-cold-run3.json",
+          "url": "http://127.0.0.1:8975/fixtures/car.jpg?i=1",
+          "status": "verified_tsa",
+          "byteLength": 580124,
+          "detectToResultMs": 87,
+          "verifyOnlyMs": 22.6,
+          "totalMs": 87,
+          "fetchMs": 7.8,
+          "messageRoundTripMs": 76,
+          "heapBeforeMB": 27.2,
+          "heapAfterMB": 27.1
+        }
+      ]
+    },
+    "warm": {
+      "n": 3,
+      "medians": {
+        "detectToResultMs": 85,
+        "verifyOnlyMs": 16.1,
+        "totalMs": 85,
+        "fetchMs": 7.5,
+        "messageRoundTripMs": 77,
+        "heapBeforeMB": 31.05,
+        "heapAfterMB": 31.09
+      },
+      "runs": [
+        {
+          "file": "single-warm-run1.json",
+          "url": "http://127.0.0.1:8975/fixtures/car.jpg?i=1",
+          "status": "verified_tsa",
+          "byteLength": 580124,
+          "detectToResultMs": 78,
+          "verifyOnlyMs": 17.3,
+          "totalMs": 78,
+          "fetchMs": 7.6,
+          "messageRoundTripMs": 67.3,
+          "heapBeforeMB": 26.97,
+          "heapAfterMB": 31.11
+        },
+        {
+          "file": "single-warm-run2.json",
+          "url": "http://127.0.0.1:8975/fixtures/car.jpg?i=1",
+          "status": "verified_tsa",
+          "byteLength": 580124,
+          "detectToResultMs": 89,
+          "verifyOnlyMs": 16.1,
+          "totalMs": 89,
+          "fetchMs": 7.5,
+          "messageRoundTripMs": 81,
+          "heapBeforeMB": 31.05,
+          "heapAfterMB": 31.09
+        },
+        {
+          "file": "single-warm-run3.json",
+          "url": "http://127.0.0.1:8975/fixtures/car.jpg?i=1",
+          "status": "verified_tsa",
+          "byteLength": 580124,
+          "detectToResultMs": 85,
+          "verifyOnlyMs": 14.7,
+          "totalMs": 85,
+          "fetchMs": 6.7,
+          "messageRoundTripMs": 77,
+          "heapBeforeMB": 31.34,
+          "heapAfterMB": 24.88
+        }
+      ]
+    },
+    "firstScanAfterInstall": {
+      "file": "single-firstload-after-install.json",
+      "url": "http://127.0.0.1:8975/fixtures/car.jpg?i=1",
+      "status": "verified_tsa",
+      "byteLength": 580124,
+      "detectToResultMs": 230,
+      "verifyOnlyMs": 81.4,
+      "totalMs": 230,
+      "fetchMs": 7.5,
+      "messageRoundTripMs": 221,
+      "heapBeforeMB": 42.72,
+      "heapAfterMB": 42.76
+    }
+  },
+  "heavyPage": {
+    "n": 3,
+    "medians": {
+      "itemsLogged": 100,
+      "totalMs": 10708,
+      "perItemAmortisedMs": 107.1,
+      "detectToResultMedianMs": 4379.5,
+      "detectToResultP95Ms": 9266,
+      "serviceMedianMs": 245.5,
+      "serviceP95Ms": 579,
+      "verifyOnlyMedianMs": 45.3,
+      "verifyOnlyP95Ms": 255.8,
+      "fetchMedianMs": 11.7,
+      "observedMaxConcurrency": 3,
+      "heapBeforeMB": 31.08,
+      "heapSampledMaxMB": 229.96,
+      "heapAfterMB": 67.48
+    },
+    "runs": [
+      {
+        "file": "heavy-run1.json",
+        "itemsLogged": 100,
+        "statuses": {
+          "verified_tsa": 45,
+          "no_credentials": 20,
+          "invalid_or_changed": 35
+        },
+        "totalMs": 10708,
+        "perItemAmortisedMs": 107.1,
+        "detectToResultMedianMs": 4379.5,
+        "detectToResultP95Ms": 9266,
+        "serviceMedianMs": 245.5,
+        "serviceP95Ms": 579,
+        "verifyOnlyMedianMs": 45.3,
+        "verifyOnlyP95Ms": 255.8,
+        "fetchMedianMs": 12.6,
+        "observedMaxConcurrency": 3,
+        "heapBeforeMB": 31.08,
+        "heapSampledMaxMB": 209.75,
+        "heapAfterMB": 57.37,
+        "heapAfterByQuarterMB": [
+          56.67,
+          68.05,
+          80.44,
+          63.13
+        ],
+        "videoCompletionPositions": [
+          90,
+          92,
+          93,
+          94,
+          95,
+          96,
+          97,
+          98,
+          99,
+          100
+        ],
+        "byKind": {
+          "image": {
+            "items": 90,
+            "serviceMedianMs": 239.5,
+            "verifyOnlyMedianMs": 25.4,
+            "verifyOnlyP95Ms": 256.5,
+            "messageOverheadMedianMs": 128.4,
+            "fetchMedianMs": 12.6
+          },
+          "video": {
+            "items": 10,
+            "serviceMedianMs": 729.5,
+            "verifyOnlyMedianMs": 51.6,
+            "verifyOnlyP95Ms": 63.3,
+            "messageOverheadMedianMs": 522.2,
+            "fetchMedianMs": 26.4
+          }
+        }
+      },
+      {
+        "file": "heavy-run2.json",
+        "itemsLogged": 100,
+        "statuses": {
+          "verified_tsa": 45,
+          "no_credentials": 20,
+          "invalid_or_changed": 35
+        },
+        "totalMs": 10266,
+        "perItemAmortisedMs": 102.7,
+        "detectToResultMedianMs": 4264.5,
+        "detectToResultP95Ms": 8927,
+        "serviceMedianMs": 235,
+        "serviceP95Ms": 531,
+        "verifyOnlyMedianMs": 38.5,
+        "verifyOnlyP95Ms": 240.7,
+        "fetchMedianMs": 10.7,
+        "observedMaxConcurrency": 3,
+        "heapBeforeMB": 26.94,
+        "heapSampledMaxMB": 229.96,
+        "heapAfterMB": 229.96,
+        "heapAfterByQuarterMB": [
+          58.46,
+          84.38,
+          80.48,
+          77.55
+        ],
+        "videoCompletionPositions": [
+          90,
+          92,
+          93,
+          94,
+          95,
+          96,
+          97,
+          98,
+          99,
+          100
+        ],
+        "byKind": {
+          "image": {
+            "items": 90,
+            "serviceMedianMs": 224,
+            "verifyOnlyMedianMs": 38.5,
+            "verifyOnlyP95Ms": 241.4,
+            "messageOverheadMedianMs": 145.9,
+            "fetchMedianMs": 10.6
+          },
+          "video": {
+            "items": 10,
+            "serviceMedianMs": 685,
+            "verifyOnlyMedianMs": 67.8,
+            "verifyOnlyP95Ms": 136.6,
+            "messageOverheadMedianMs": 455.1,
+            "fetchMedianMs": 21.8
+          }
+        }
+      },
+      {
+        "file": "heavy-run3.json",
+        "itemsLogged": 100,
+        "statuses": {
+          "verified_tsa": 45,
+          "no_credentials": 20,
+          "invalid_or_changed": 35
+        },
+        "totalMs": 11028,
+        "perItemAmortisedMs": 110.3,
+        "detectToResultMedianMs": 4608,
+        "detectToResultP95Ms": 9682,
+        "serviceMedianMs": 252,
+        "serviceP95Ms": 627,
+        "verifyOnlyMedianMs": 47.3,
+        "verifyOnlyP95Ms": 274.1,
+        "fetchMedianMs": 11.7,
+        "observedMaxConcurrency": 3,
+        "heapBeforeMB": 31.09,
+        "heapSampledMaxMB": 264.58,
+        "heapAfterMB": 67.48,
+        "heapAfterByQuarterMB": [
+          56.74,
+          68.09,
+          80.48,
+          104.38
+        ],
+        "videoCompletionPositions": [
+          90,
+          92,
+          93,
+          94,
+          95,
+          96,
+          97,
+          98,
+          99,
+          100
+        ],
+        "byKind": {
+          "image": {
+            "items": 90,
+            "serviceMedianMs": 245.5,
+            "verifyOnlyMedianMs": 32.5,
+            "verifyOnlyP95Ms": 278.8,
+            "messageOverheadMedianMs": 138.8,
+            "fetchMedianMs": 11.2
+          },
+          "video": {
+            "items": 10,
+            "serviceMedianMs": 704.5,
+            "verifyOnlyMedianMs": 49.4,
+            "verifyOnlyP95Ms": 66.9,
+            "messageOverheadMedianMs": 505.1,
+            "fetchMedianMs": 40
+          }
+        }
+      }
+    ]
+  },
+  "notMeasured": {
+    "singleItemHeapPeak": "Only two heap samples exist per item (immediately before and after verify()); a peak between them is not captured.",
+    "heavyPageHeapPeak": "True peak not captured; heapSampledMaxMB is the largest of the per-item before/after samples.",
+    "cacheHits": "Not measured. The manual scan calls verifyOne(url, true) (bypassCache) for every item, and only the manual scan writes c2pa.perf_log, so cache hits are 0 by design in this harness.",
+    "wasmMemory": "performance.memory reports the offscreen document JS heap only; c2pa-web WASM linear memory is excluded."
+  }
+}
