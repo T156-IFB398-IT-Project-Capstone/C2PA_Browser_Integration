@@ -679,11 +679,15 @@
     if (!badge) {
       badge = document.createElement('img');
       badge.dataset.c2paBadgeIcon = '1';
+      // Usability check: the yellow "edited" shield was hard to see on white
+      // images. Two stacked 1px drop-shadows trace the PNG's alpha edge, giving
+      // every badge a thin dark outline that holds on light and dark media.
       badge.style.cssText =
         'all:initial;position:absolute;' +
         `right:${margin}px;${vertical}:${margin}px;` +
         `width:${size}px;height:${size}px;object-fit:contain;` +
         'background:transparent;border:none;box-shadow:none;padding:0;margin:0;' +
+        'filter:drop-shadow(0 0 1px rgba(0,0,0,.85)) drop-shadow(0 0 1px rgba(0,0,0,.85));' +
         'cursor:pointer;pointer-events:auto;z-index:2147483647;';
       wrapper.appendChild(badge);
     }
