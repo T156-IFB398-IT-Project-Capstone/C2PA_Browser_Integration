@@ -25,6 +25,12 @@
   const MSG_SCAN_COMPLETE    = 'c2pa/scan_complete';
   const MSG_SCROLL_TO_MEDIA  = 'c2pa/scroll_to_media';
   const MIN_REANNOUNCE_MS    = 2_000;  // rate-limit for realtime tracking messages
+  const SETTINGS_KEY         = 'c2pa.settings';  // STORAGE_KEYS.SETTINGS
+
+  /** ON/OFF control state: null until the saved setting has been read. */
+  let _enabled = null;
+  /** Last scan's results on this page, kept so switching back on can redraw its badges. */
+  let _lastResults = [];
 
   // Badge selection runs on TWO axes:
   //
@@ -279,18 +285,15 @@
     }
 
     if (message?.type === MSG_SCAN_COMPLETE) {
+      // A scan can finish just after the user switches checking off.
+      if (_enabled === false) return false;
       // Background finished verifying — annotate any <img> or <video> whose
       // result resolves to a badge (see pickBadge: trust-gated content
       // category, or "unverifiable", or nothing). res.kind is carried through
       // from discoverMedia() by the service worker's scan results, so a
       // video result is matched against <video>/<source> rather than <img>.
-      const results = message.payload?.summary?.results ?? [];
-      for (const res of results) {
-        const badge = pickBadge(res);
-        if (!badge) continue;
-        const el = findElementForMediaUrl(res.sourceUrl, res.kind);
-        if (el) addCornerBadge(el, badge.key, badge.url, res);
-      }
+      _lastResults = message.payload?.summary?.results ?? [];
+      applyBadges(_lastResults);
       return false;
     }
 
@@ -755,9 +758,6 @@
     }
   }
 
-  // Initial announcement once the page is idle.
-  announce();
-
   // Watch for dynamically-inserted media (SPAs, lazy-loaded content, infinite scroll).
   // Debounce: wait 1 s after the last mutation, then re-announce.
   let _debounceTimer = null;
@@ -767,10 +767,81 @@
     _debounceTimer = setTimeout(announce, 1_000);
   });
 
-  _observer.observe(document.body, {
-    childList:       true,
-    subtree:         true,
-    attributes:      true,
-    attributeFilter: ['src', 'srcset', 'poster', 'currentSrc'],
+  function startDetection() {
+    _lastAnnounceTs = 0;
+    announce();
+    _observer.observe(document.body, {
+      childList:       true,
+      subtree:         true,
+      attributes:      true,
+      attributeFilter: ['src', 'srcset', 'poster', 'currentSrc'],
+    });
+  }
+
+  function stopDetection() {
+    _observer.disconnect();
+    clearTimeout(_debounceTimer);
+  }
+
+  function applyBadges(results) {
+    for (const res of results) {
+      const badge = pickBadge(res);
+      if (!badge) continue;
+      const el = findElementForMediaUrl(res.sourceUrl, res.kind);
+      if (el) addCornerBadge(el, badge.key, badge.url, res);
+    }
+  }
+
+  /**
+   * Undo every addCornerBadge(): put each media element back where it was,
+   * drop the wrapper (badge + tooltip go with it) and remove the modal.
+   */
+  function removeAllBadges() {
+    for (const wrapper of document.querySelectorAll('span[data-c2pa-badge-wrapper]')) {
+      const media = wrapper.querySelector(':scope > [data-c2pa-badge]');
+      if (media) {
+        delete media.dataset.c2paBadge;
+        wrapper.parentNode.insertBefore(media, wrapper);
+      }
+      wrapper.remove();
+    }
+    if (sharedModal) {
+      sharedModal.backdrop.remove();
+      sharedModal = null;
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // ON/OFF control — the popup switch saves { enabled } under SETTINGS_KEY.
+  // Off: detection pauses and every badge is removed, restoring the page's
+  // layout; the last scan's results are kept in memory. On: detection resumes
+  // and those badges are redrawn — no rescan. A page reload clears them, as it
+  // always has. Defaults to on (settings.js DEFAULT_SETTINGS) when nothing is
+  // saved or the value is malformed.
+  // -------------------------------------------------------------------------
+
+  function applyEnabled(on) {
+    if (on === _enabled) return;
+    const wasOff = _enabled === false;
+    _enabled = on;
+    if (on) {
+      startDetection();
+      if (wasOff) applyBadges(_lastResults);
+    } else {
+      stopDetection();
+      removeAllBadges();
+    }
+  }
+
+  const readEnabled = (raw) => (typeof raw?.enabled === 'boolean' ? raw.enabled : true);
+
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local' || !(SETTINGS_KEY in changes)) return;
+    applyEnabled(readEnabled(changes[SETTINGS_KEY].newValue));
   });
+
+  // Start once the saved setting is known; fall back to on if storage fails.
+  chrome.storage.local.get(SETTINGS_KEY)
+    .then((stored) => applyEnabled(readEnabled(stored[SETTINGS_KEY])))
+    .catch(() => applyEnabled(true));
 })();

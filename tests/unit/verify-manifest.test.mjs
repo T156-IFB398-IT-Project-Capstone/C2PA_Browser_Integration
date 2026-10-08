@@ -53,8 +53,8 @@ describe('verify() with a stand-in SDK', () => {
       'ai_disclosure', 'ai_source_type', 'contentCategory', 'contentHistory',
       'creator', 'has_non_ai_edit', 'signer', 'tsa_info', 'validity_window',
     ]);
-    // popup.js reads manifest.validity, which is never produced
-    // (extractValidity() is dead code). See docs/phase2/ui-bug-proposals.md P1.
+    // No `validity` key (extractValidity() is dead code). popup.js now reads
+    // validity_window / tsa_info instead. See docs/phase2/ui-bug-proposals.md P1.
     assert.equal('validity' in manifest, false);
   });
 
