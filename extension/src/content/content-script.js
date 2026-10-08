@@ -429,8 +429,13 @@
     invalid_or_changed:  'This credential could not be validated.',
   };
 
+  // Badge labels — wording from the usability round (Grace's findings):
+  // "AI-Edited" vs "AI-Generated" kept, the trusted non-AI states renamed so
+  // they say what was verified rather than "Authentic". Also the tooltip
+  // headline, so the badge, tooltip, and "More detail" use the same words.
   const CATEGORY_LABEL = {
-    authentic: 'Authentic', edited: 'Edited', ai_edited: 'AI-Edited', ai_generated: 'AI-Generated',
+    authentic: 'Verified', edited: 'Verified · Edited', ai_edited: 'AI-Edited', ai_generated: 'AI-Generated',
+    unverifiable: 'Unverified',
   };
 
   function lowerFirst(s) { return s ? s.charAt(0).toLowerCase() + s.slice(1) : s; }
@@ -440,30 +445,41 @@
     const m = res.manifest || {};
     const signerName = m.signer?.common_name;
     const trustLine = TRUST_STATUS_TEXT[res.status] ?? 'Verification status unknown.';
+    const noun = res.kind === 'video' ? 'video' : 'image';
+    const headline = CATEGORY_LABEL[badgeKey] ?? 'Verified';
 
     if (badgeKey === 'ai_generated') {
-      let body = 'This image discloses it was created using AI.';
+      // This badge bypasses the trust gate (see pickBadge), so only claim the
+      // record is reliable when the signature is fully trusted.
+      let body = `Created by an AI system. The Content Credentials record which AI tool produced this ${noun}.`;
       body += res.status === 'verified_trusted'
         ? (signerName ? ` Signed by ${signerName}.` : '')
         : ` Its signing credential isn't fully verified — ${lowerFirst(trustLine)}`;
-      return { headline: 'Discloses AI generation', body };
+      return { headline, body };
     }
 
     if (badgeKey === 'unverifiable') {
-      const body = signerName ? `Signed by ${signerName}. ${trustLine}` : trustLine;
-      return { headline: "Can't confirm the signer", body };
+      // A trusted signature with no readable content history also lands here;
+      // "the signer could not be verified" would be false for that case.
+      // For the other statuses, add the specific reason (expired, TSA-only)
+      // unless it would just repeat "not on the trust list".
+      let body = res.status === 'verified_trusted'
+        ? `Content Credentials verified, but this ${noun}'s edit history could not be read.`
+        : 'Content Credentials present but the signer could not be verified against the trust list.' +
+          (res.status === 'verified_untrusted' ? '' : ` ${trustLine}`);
+      if (signerName) body += ` Signed by ${signerName}.`;
+      return { headline, body };
     }
 
     // authentic / edited / ai_edited — only reachable when fully trusted.
-    const categoryLine = {
-      authentic: 'shows no edits beyond capture',
-      edited:    'shows it was edited (e.g. cropping, resizing)',
-      ai_edited: 'discloses AI was used to modify it',
-    }[badgeKey] ?? 'has a known content history';
-    const headline = {
-      authentic: 'Fully verified', edited: 'Fully verified — edited', ai_edited: 'Fully verified — AI-edited',
-    }[badgeKey] ?? 'Fully verified';
-    let body = `This image's content credential is fully verified and ${categoryLine}.`;
+    let body = {
+      authentic: 'Content Credentials verified: the signer and the content match the record. ' +
+                 `This confirms provenance, not that the ${noun} is true.`,
+      edited:    `Content Credentials verified. The ${noun} was edited with conventional (non-AI) tools; ` +
+                 'the edits are recorded in its history.',
+      ai_edited: 'A real capture or creation that was later altered with AI tools. ' +
+                 'Not fully AI-generated — see the edit history in More detail.',
+    }[badgeKey] ?? 'Content Credentials verified.';
     if (signerName) body += ` Signed by ${signerName}.`;
     return { headline, body };
   }

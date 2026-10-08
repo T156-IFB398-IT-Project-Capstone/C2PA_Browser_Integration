@@ -4,7 +4,7 @@
 // Verification runs via WASM offscreen document — no service health check needed.
 
 import { MSG, msg }              from '../shared/messages.js';
-import { STORAGE_KEYS, TEST_BENCH_URLS } from '../shared/constants.js';
+import { STORAGE_KEYS, TEST_BENCH_URLS, VERIFY_STATUS } from '../shared/constants.js';
 import { statusToLabel }         from '../shared/status-label.js';
 import { renderThumb }           from '../shared/render-thumb.js';
 
@@ -350,6 +350,16 @@ function renderItem(item) {
   tags.appendChild(statusEl);
 
   body.appendChild(tags);
+
+  // Usability round: absence of credentials was read as "fake". Say plainly
+  // that it isn't (CLAUDE.md constraint #4).
+  if (item.status === VERIFY_STATUS.NO_CREDENTIALS) {
+    const note = document.createElement('div');
+    note.className   = 'result-meta';
+    note.textContent = 'No Content Credentials found. This does not mean the ' +
+      `${item.kind === 'video' ? 'video' : 'image'} is fake — most media has no credentials yet.`;
+    body.appendChild(note);
+  }
 
   if (item.manifest) {
   const parts = [];
