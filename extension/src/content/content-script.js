@@ -682,15 +682,54 @@
       // collapses inside a shrink-to-fit inline-block — unlike an <img>, it
       // has no large intrinsic width to fall back on — so give it a block
       // wrapper that fills the same container the video did.
-      const isBlockVideo = isVideo && getComputedStyle(imgEl).display === 'block';
+      const mediaStyle = getComputedStyle(imgEl);
+      const isBlockVideo = isVideo && mediaStyle.display === 'block';
+      // Same problem for a block-level <img> sized as a percentage of its
+      // container (e.g. `width:100%; height:220px; object-fit:cover` in a card
+      // grid): inside an inline-block the percentage has nothing to resolve
+      // against, so the image falls back to its own aspect ratio and narrows.
+      // An inline-block also adds a line box, nudging everything below by a few
+      // px. So a block-level image gets a block wrapper: full width when it was
+      // filling its container, otherwise shrink-wrapped to the image (P4 in
+      // docs/phase2/ui-bug-proposals.md).
+      const isBlockImg = !isVideo && mediaStyle.display === 'block';
+      // A floated image would float inside the wrapper, leaving the wrapper
+      // empty-height and the badge stranded above it. Float the wrapper
+      // instead, and move the image's margins onto it so text keeps the same
+      // gap and the badge stays on the image's corner. removeAllBadges() puts
+      // the original inline margin back.
+      const isFloated = mediaStyle.float !== 'none';
+      let blockImgCss = '';
+      if (isFloated) {
+        const m = mediaStyle;
+        blockImgCss =
+          `display:block;float:${m.float};width:fit-content;` +
+          `margin:${m.marginTop} ${m.marginRight} ${m.marginBottom} ${m.marginLeft};`;
+        imgEl.dataset.c2paOrigMargin = imgEl.style.margin;
+        imgEl.style.margin = '0';
+      } else if (isBlockImg) {
+        const parent = imgEl.parentElement;
+        const parentStyle = getComputedStyle(parent);
+        const contentWidth = parent.clientWidth
+          - parseFloat(parentStyle.paddingLeft) - parseFloat(parentStyle.paddingRight);
+        const outerWidth = imgEl.getBoundingClientRect().width
+          + parseFloat(mediaStyle.marginLeft) + parseFloat(mediaStyle.marginRight);
+        blockImgCss = Math.abs(outerWidth - contentWidth) <= 1
+          ? 'display:block;margin:0;'
+          : 'display:block;margin:0;width:fit-content;';
+      }
       wrapper.style.cssText =
         'all:initial;position:relative;line-height:0;' +
         'background:transparent;border:none;box-shadow:none;padding:0;' +
         (isImageDoc
           ? 'display:block;margin:auto;width:fit-content;'
-          : isBlockVideo
-            ? 'display:block;margin:0;'
-            : 'display:inline-block;margin:0;');
+          : isFloated
+            ? blockImgCss
+            : isBlockVideo
+              ? 'display:block;margin:0;'
+              : isBlockImg
+                ? blockImgCss
+              : 'display:inline-block;margin:0;');
       imgEl.parentNode.insertBefore(wrapper, imgEl);
       wrapper.appendChild(imgEl);
     }
@@ -801,6 +840,10 @@
       const media = wrapper.querySelector(':scope > [data-c2pa-badge]');
       if (media) {
         delete media.dataset.c2paBadge;
+        if ('c2paOrigMargin' in media.dataset) {
+          media.style.margin = media.dataset.c2paOrigMargin;
+          delete media.dataset.c2paOrigMargin;
+        }
         wrapper.parentNode.insertBefore(media, wrapper);
       }
       wrapper.remove();
