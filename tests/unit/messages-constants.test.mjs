@@ -58,6 +58,12 @@ describe('constants', () => {
       assert.deepEqual(inlined, [...SUPPORTED_EXTENSIONS]);
     });
 
+    test('SETTINGS_KEY (ON/OFF control)', () => {
+      const m = src.match(/const SETTINGS_KEY\s*=\s*'([^']+)'/);
+      assert.ok(m, 'SETTINGS_KEY not found in content-script.js');
+      assert.equal(m[1], STORAGE_KEYS.SETTINGS);
+    });
+
     for (const key of ['MEDIA_DETECTED', 'SCAN_ACTIVE_TAB', 'SCAN_COMPLETE', 'SCROLL_TO_MEDIA']) {
       test(`MSG_${key}`, () => {
         const m = src.match(new RegExp(`const MSG_${key}\\s*=\\s*'([^']+)'`));

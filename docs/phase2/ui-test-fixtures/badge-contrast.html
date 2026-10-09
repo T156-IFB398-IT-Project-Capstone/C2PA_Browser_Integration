@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<!--
+  Before/after fixture for the badge contrast outline (usability finding:
+  the yellow "edited" shield is hard to see on white images).
+
+  Serve the REPO ROOT on 127.0.0.1 and open
+  http://127.0.0.1:8080/docs/phase2/ui-test-fixtures/badge-contrast.html
+
+  Each card is a pure-white "image" with a corner badge using the same inline
+  style as addCornerBadge() in extension/src/content/content-script.js, at
+  the real 28px size. "Before" omits the filter; "after" adds the
+  drop-shadow outline. Keep BADGE_BASE in sync with the content script.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Badge contrast before/after</title>
+<style>
+  body { font: 15px/1.5 system-ui, sans-serif; margin: 24px; background: #f2f2f2; color: #222; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  p { margin: 0 0 16px; color: #555; }
+  .row { display: flex; gap: 16px; align-items: flex-start; margin-bottom: 20px; }
+  .label { width: 70px; font-weight: 600; padding-top: 50px; }
+  figure { margin: 0; text-align: center; font-size: 13px; color: #555; }
+  .frame { position: relative; line-height: 0; display: inline-block; }
+  .frame img.photo { width: 160px; height: 120px; display: block; border: 1px solid #ccc; }
+  .frame.dark img.photo { border-color: #222; }
+</style>
+</head>
+<body>
+<h1>Corner badge contrast: before vs after</h1>
+<p>Badges at the real 28px size on a plain white image, and on a dark image to check nothing regresses.</p>
+<div id="rows"></div>
+<script>
+  const BADGES = ['edited', 'authentic', 'ai-edited', 'ai-generated'];
+  const BADGE_BASE =
+    'all:initial;position:absolute;right:4px;bottom:4px;' +
+    'width:28px;height:28px;object-fit:contain;' +
+    'background:transparent;border:none;box-shadow:none;padding:0;margin:0;';
+  const OUTLINE =
+    'filter:drop-shadow(0 0 1px rgba(0,0,0,.85)) drop-shadow(0 0 1px rgba(0,0,0,.85));';
+  const solid = (c) => 'data:image/svg+xml,' + encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="120"><rect width="160" height="120" fill="${c}"/></svg>`);
+
+  // ?only=before or ?only=after renders one state, for separate screenshots.
+  const only = new URLSearchParams(location.search).get('only');
+  const rows = document.getElementById('rows');
+  for (const [name, extra] of [['Before', ''], ['After', OUTLINE]]) {
+    if (only && only !== name.toLowerCase()) continue;
+    for (const bg of ['#ffffff', '#1e1e1e']) {
+      const row = document.createElement('div');
+      row.className = 'row';
+      row.dataset.case = `${name.toLowerCase()}-${bg === '#ffffff' ? 'white' : 'dark'}`;
+      row.innerHTML = `<div class="label">${name}<br><small>${bg === '#ffffff' ? 'white' : 'dark'}</small></div>`;
+      for (const b of BADGES) {
+        const fig = document.createElement('figure');
+        fig.innerHTML =
+          `<span class="frame${bg === '#ffffff' ? '' : ' dark'}"><img class="photo" alt="" src="${solid(bg)}">` +
+          `<img alt="${b}" src="../../../extension/icons/badges/${b}.png" style="${BADGE_BASE}${extra}"></span>` +
+          `<figcaption>${b}</figcaption>`;
+        row.appendChild(fig);
+      }
+      rows.appendChild(row);
+    }
+  }
+</script>
+</body>
+</html>

@@ -27,8 +27,8 @@ export const BADGE_ELIGIBLE_STATUSES = new Set([
 // directory depths relative to the badge SVGs (popup.js: badges/..., the
 // test bench: ../extension/src/popup/badges/...) and prepend their own base.
 export const BADGE_FILES = {
-  authentic:        { file: 'shield-authentic.svg',    alt: 'Authentic' },
-  authentic_edited: { file: 'shield-edited-2.svg',      alt: 'Authentic — Edited' },
+  authentic:        { file: 'shield-authentic.svg',    alt: 'Verified' },
+  authentic_edited: { file: 'shield-edited-2.svg',      alt: 'Verified · Edited' },
   ai_edited:        { file: 'shield-ai-edited.svg',     alt: 'AI-Edited' },
   ai_generated:     { file: 'shield-ai-generated.svg',  alt: 'AI-Generated' },
 };
