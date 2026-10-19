@@ -1,0 +1,928 @@
+{
+  "label": "before",
+  "generatedAt": "2026-10-19T04:32:58.746Z",
+  "environment": {
+    "commit": "3ab97f5a72193eabf317003effa0589b5094a778",
+    "engineFilesModifiedSinceCommit": [],
+    "c2paWeb": "0.13.1",
+    "chrome": "Chrome/155.0.8059.80",
+    "node": "v24.15.0",
+    "os": "Windows_NT 10.0.26100 x64"
+  },
+  "engineSettings": {
+    "trust": {
+      "trustAnchors": null,
+      "userAnchors": null,
+      "trustConfig": null,
+      "allowedList": null
+    },
+    "cawgTrust": {
+      "verifyTrustList": true,
+      "trustAnchors": null
+    },
+    "verify": "(SDK defaults)"
+  },
+  "engineInit": {
+    "settingsApplied": true,
+    "fallbackError": null
+  },
+  "checks": [
+    {
+      "id": "network-capture-self-test",
+      "result": "PASS",
+      "detail": "recorded 1 request(s) to engine-check-capture-selftest.invalid from: worker; worker saw \"failed: Failed to fetch\""
+    },
+    {
+      "id": "engine-settings-applied",
+      "result": "PASS",
+      "detail": "createC2pa() accepted ENGINE_SETTINGS"
+    },
+    {
+      "id": "trust-anchors",
+      "result": "N/A",
+      "detail": "no trust.trustAnchors or trust.userAnchors in ENGINE_SETTINGS — no C2PA signer can be trusted"
+    },
+    {
+      "id": "remote-manifests-local",
+      "result": "N/A",
+      "detail": "verify.remoteManifestFetch is not set to false (SDK default applies)"
+    }
+  ],
+  "captureSelfTest": {
+    "host": "engine-check-capture-selftest.invalid",
+    "outcome": "failed: Failed to fetch",
+    "recorded": [
+      {
+        "phase": "capture-self-test",
+        "target": "worker",
+        "method": "GET",
+        "url": "https://engine-check-capture-selftest.invalid/",
+        "kind": "outbound",
+        "outcome": "failed: net::ERR_NAME_NOT_RESOLVED"
+      }
+    ]
+  },
+  "assets": [
+    {
+      "name": "car.jpg",
+      "mimeType": "image/jpeg",
+      "size": 580124,
+      "sha256": "17c9e5b9f40ef79bb8e8af4adf36fe2be54d9c4a7f96f29813e6c3850ab8caa8",
+      "finalState": "verified_tsa",
+      "error": null,
+      "durationMs": 87.9,
+      "validationState": "Valid",
+      "codes": {
+        "success": [
+          "timeStamp.validated",
+          "timeStamp.trusted",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "assertion.hashedURI.match",
+          "assertion.hashedURI.match",
+          "assertion.hashedURI.match",
+          "assertion.hashedURI.match",
+          "assertion.hashedURI.match",
+          "assertion.hashedURI.match",
+          "assertion.dataHash.match"
+        ],
+        "informational": [],
+        "failure": [
+          "signingCredential.untrusted"
+        ],
+        "validation_status": [
+          "signingCredential.untrusted"
+        ]
+      },
+      "manifestSummary": {
+        "signer": {
+          "common_name": "Adobe C2PA",
+          "issuer": "Adobe Inc.",
+          "alg": "Ps256",
+          "time": "2025-10-23T19:22:19+00:00"
+        },
+        "tsa_info": {
+          "validated": true,
+          "time": "2025-10-23T19:22:19+00:00"
+        },
+        "validity_window": {
+          "inside_validity": true,
+          "expired": false
+        },
+        "contentCategory": "edited"
+      },
+      "requestsDuringVerification": [],
+      "raw": {
+        "active_manifest": "adobe:urn:uuid:3e12431f-16dc-478c-9aa1-f9eb40910a0f",
+        "validation_state": "Valid",
+        "validation_status": [
+          {
+            "code": "signingCredential.untrusted",
+            "url": "self#jumbf=/c2pa/adobe:urn:uuid:3e12431f-16dc-478c-9aa1-f9eb40910a0f/c2pa.signature",
+            "explanation": "signing certificate untrusted"
+          }
+        ],
+        "validation_results": {
+          "activeManifest": {
+            "success": [
+              {
+                "code": "timeStamp.validated",
+                "url": "self#jumbf=/c2pa/adobe:urn:uuid:3e12431f-16dc-478c-9aa1-f9eb40910a0f/c2pa.signature",
+                "explanation": "timestamp message digest matched: Adobe SHA256 ECC256 Timestamp Responder 2025 1"
+              },
+              {
+                "code": "timeStamp.trusted",
+                "url": "self#jumbf=/c2pa/adobe:urn:uuid:3e12431f-16dc-478c-9aa1-f9eb40910a0f/c2pa.signature",
+                "explanation": "timestamp cert trusted: Adobe SHA256 ECC256 Timestamp Responder 2025 1"
+              },
+              {
+                "code": "claimSignature.insideValidity",
+                "url": "self#jumbf=/c2pa/adobe:urn:uuid:3e12431f-16dc-478c-9aa1-f9eb40910a0f/c2pa.signature",
+                "explanation": "claim signature valid"
+              },
+              {
+                "code": "claimSignature.validated",
+                "url": "self#jumbf=/c2pa/adobe:urn:uuid:3e12431f-16dc-478c-9aa1-f9eb40910a0f/c2pa.signature",
+                "explanation": "claim signature valid"
+              },
+              {
+                "code": "assertion.hashedURI.match",
+                "url": "self#jumbf=/c2pa/adobe:urn:uuid:3e12431f-16dc-478c-9aa1-f9eb40910a0f/c2pa.assertions/c2pa.thumbnail.claim.jpeg",
+                "explanation": "hashed uri matched: self#jumbf=c2pa.assertions/c2pa.thumbnail.claim.jpeg"
+              },
+              {
+                "code": "assertion.hashedURI.match",
+                "url": "self#jumbf=/c2pa/adobe:urn:uuid:3e12431f-16dc-478c-9aa1-f9eb40910a0f/c2pa.assertions/c2pa.thumbnail.ingredient.jpeg",
+                "explanation": "hashed uri matched: self#jumbf=c2pa.assertions/c2pa.thumbnail.ingredient.jpeg"
+              },
+              {
+                "code": "assertion.hashedURI.match",
+                "url": "self#jumbf=/c2pa/adobe:urn:uuid:3e12431f-16dc-478c-9aa1-f9eb40910a0f/c2pa.assertions/c2pa.ingredient",
+                "explanation": "hashed uri matched: self#jumbf=c2pa.assertions/c2pa.ingredient"
+              },
+              {
+                "code": "assertion.hashedURI.match",
+                "url": "self#jumbf=/c2pa/adobe:urn:uuid:3e12431f-16dc-478c-9aa1-f9eb40910a0f/c2pa.assertions/stds.schema-org.CreativeWork",
+                "explanation": "hashed uri matched: self#jumbf=c2pa.assertions/stds.schema-org.CreativeWork"
+              },
+              {
+                "code": "assertion.hashedURI.match",
+                "url": "self#jumbf=/c2pa/adobe:urn:uuid:3e12431f-16dc-478c-9aa1-f9eb40910a0f/c2pa.assertions/c2pa.actions",
+                "explanation": "hashed uri matched: self#jumbf=c2pa.assertions/c2pa.actions"
+              },
+              {
+                "code": "assertion.hashedURI.match",
+                "url": "self#jumbf=/c2pa/adobe:urn:uuid:3e12431f-16dc-478c-9aa1-f9eb40910a0f/c2pa.assertions/c2pa.hash.data",
+                "explanation": "hashed uri matched: self#jumbf=c2pa.assertions/c2pa.hash.data"
+              },
+              {
+                "code": "assertion.dataHash.match",
+                "url": "self#jumbf=/c2pa/adobe:urn:uuid:3e12431f-16dc-478c-9aa1-f9eb40910a0f/c2pa.assertions/c2pa.hash.data",
+                "explanation": "data hash valid"
+              }
+            ],
+            "informational": [],
+            "failure": [
+              {
+                "code": "signingCredential.untrusted",
+                "url": "self#jumbf=/c2pa/adobe:urn:uuid:3e12431f-16dc-478c-9aa1-f9eb40910a0f/c2pa.signature",
+                "explanation": "signing certificate untrusted"
+              }
+            ]
+          },
+          "ingredientDeltas": [
+            {
+              "ingredientAssertionURI": "self#jumbf=/c2pa/adobe:urn:uuid:3e12431f-16dc-478c-9aa1-f9eb40910a0f/c2pa.assertions/c2pa.ingredient",
+              "validationDeltas": {
+                "success": [],
+                "informational": [
+                  {
+                    "code": "ingredient.unknownProvenance",
+                    "url": "self#jumbf=/c2pa/adobe:urn:uuid:3e12431f-16dc-478c-9aa1-f9eb40910a0f/c2pa.assertions/c2pa.ingredient",
+                    "explanation": "car-es.jpeg: ingredient does not have provenance"
+                  }
+                ],
+                "failure": []
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "ChatGPTgen.png",
+      "mimeType": "image/png",
+      "size": 2130441,
+      "sha256": "7cd57b4a33f05e4ce7f63de18751f59f4b3ea8c55c281204e0cd6d1f621e466f",
+      "finalState": "invalid_or_changed",
+      "error": null,
+      "durationMs": 25,
+      "validationState": "Invalid",
+      "codes": {
+        "success": [
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "assertion.hashedURI.match",
+          "assertion.hashedURI.match",
+          "assertion.hashedURI.match",
+          "assertion.hashedURI.match",
+          "assertion.dataHash.match"
+        ],
+        "informational": [],
+        "failure": [
+          "signingCredential.expired",
+          "signingCredential.untrusted"
+        ],
+        "validation_status": [
+          "signingCredential.expired",
+          "signingCredential.untrusted",
+          "signingCredential.expired",
+          "signingCredential.untrusted"
+        ]
+      },
+      "manifestSummary": {
+        "signer": {
+          "common_name": "Truepic Lens CLI in Sora",
+          "issuer": "OpenAI",
+          "alg": "Es256",
+          "time": null
+        },
+        "tsa_info": {
+          "validated": false,
+          "time": null
+        },
+        "validity_window": {
+          "inside_validity": true,
+          "expired": true
+        },
+        "contentCategory": "ai_generated"
+      },
+      "requestsDuringVerification": [],
+      "raw": {
+        "active_manifest": "urn:c2pa:5e7b0c6d-8e4e-41bd-88d4-e4ef2984a971",
+        "validation_state": "Invalid",
+        "validation_status": [
+          {
+            "code": "signingCredential.expired",
+            "url": "self#jumbf=/c2pa/urn:c2pa:5e7b0c6d-8e4e-41bd-88d4-e4ef2984a971/c2pa.signature",
+            "explanation": "certificate expired"
+          },
+          {
+            "code": "signingCredential.untrusted",
+            "url": "self#jumbf=/c2pa/urn:c2pa:5e7b0c6d-8e4e-41bd-88d4-e4ef2984a971/c2pa.signature",
+            "explanation": "signing certificate untrusted"
+          },
+          {
+            "code": "signingCredential.expired",
+            "url": "self#jumbf=/c2pa/urn:c2pa:ec8fd500-c0c2-4b84-8263-f6a1bf03ea94/c2pa.signature",
+            "explanation": "certificate expired"
+          },
+          {
+            "code": "signingCredential.untrusted",
+            "url": "self#jumbf=/c2pa/urn:c2pa:ec8fd500-c0c2-4b84-8263-f6a1bf03ea94/c2pa.signature",
+            "explanation": "signing certificate untrusted"
+          }
+        ],
+        "validation_results": {
+          "activeManifest": {
+            "success": [
+              {
+                "code": "claimSignature.insideValidity",
+                "url": "self#jumbf=/c2pa/urn:c2pa:5e7b0c6d-8e4e-41bd-88d4-e4ef2984a971/c2pa.signature",
+                "explanation": "claim signature valid"
+              },
+              {
+                "code": "claimSignature.validated",
+                "url": "self#jumbf=/c2pa/urn:c2pa:5e7b0c6d-8e4e-41bd-88d4-e4ef2984a971/c2pa.signature",
+                "explanation": "claim signature valid"
+              },
+              {
+                "code": "assertion.hashedURI.match",
+                "url": "self#jumbf=/c2pa/urn:c2pa:5e7b0c6d-8e4e-41bd-88d4-e4ef2984a971/c2pa.assertions/c2pa.thumbnail.ingredient",
+                "explanation": "hashed uri matched: self#jumbf=c2pa.assertions/c2pa.thumbnail.ingredient"
+              },
+              {
+                "code": "assertion.hashedURI.match",
+                "url": "self#jumbf=/c2pa/urn:c2pa:5e7b0c6d-8e4e-41bd-88d4-e4ef2984a971/c2pa.assertions/c2pa.ingredient.v3",
+                "explanation": "hashed uri matched: self#jumbf=c2pa.assertions/c2pa.ingredient.v3"
+              },
+              {
+                "code": "assertion.hashedURI.match",
+                "url": "self#jumbf=/c2pa/urn:c2pa:5e7b0c6d-8e4e-41bd-88d4-e4ef2984a971/c2pa.assertions/c2pa.actions.v2",
+                "explanation": "hashed uri matched: self#jumbf=c2pa.assertions/c2pa.actions.v2"
+              },
+              {
+                "code": "assertion.hashedURI.match",
+                "url": "self#jumbf=/c2pa/urn:c2pa:5e7b0c6d-8e4e-41bd-88d4-e4ef2984a971/c2pa.assertions/c2pa.hash.data",
+                "explanation": "hashed uri matched: self#jumbf=c2pa.assertions/c2pa.hash.data"
+              },
+              {
+                "code": "assertion.dataHash.match",
+                "url": "self#jumbf=/c2pa/urn:c2pa:5e7b0c6d-8e4e-41bd-88d4-e4ef2984a971/c2pa.assertions/c2pa.hash.data",
+                "explanation": "data hash valid"
+              }
+            ],
+            "informational": [],
+            "failure": [
+              {
+                "code": "signingCredential.expired",
+                "url": "self#jumbf=/c2pa/urn:c2pa:5e7b0c6d-8e4e-41bd-88d4-e4ef2984a971/c2pa.signature",
+                "explanation": "certificate expired"
+              },
+              {
+                "code": "signingCredential.untrusted",
+                "url": "self#jumbf=/c2pa/urn:c2pa:5e7b0c6d-8e4e-41bd-88d4-e4ef2984a971/c2pa.signature",
+                "explanation": "signing certificate untrusted"
+              }
+            ]
+          },
+          "ingredientDeltas": [
+            {
+              "ingredientAssertionURI": "self#jumbf=/c2pa/urn:c2pa:5e7b0c6d-8e4e-41bd-88d4-e4ef2984a971/c2pa.assertions/c2pa.ingredient.v3",
+              "validationDeltas": {
+                "success": [
+                  {
+                    "code": "ingredient.manifest.validated",
+                    "url": "self#jumbf=/c2pa/urn:c2pa:ec8fd500-c0c2-4b84-8263-f6a1bf03ea94",
+                    "explanation": "ingredient hash matched"
+                  }
+                ],
+                "informational": [],
+                "failure": [
+                  {
+                    "code": "signingCredential.expired",
+                    "url": "self#jumbf=/c2pa/urn:c2pa:ec8fd500-c0c2-4b84-8263-f6a1bf03ea94/c2pa.signature",
+                    "explanation": "certificate expired"
+                  },
+                  {
+                    "code": "signingCredential.untrusted",
+                    "url": "self#jumbf=/c2pa/urn:c2pa:ec8fd500-c0c2-4b84-8263-f6a1bf03ea94/c2pa.signature",
+                    "explanation": "signing certificate untrusted"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "crater-lake.jpg",
+      "mimeType": "image/jpeg",
+      "size": 618091,
+      "sha256": "eef052cf93d336862017f34f61b853b61474e519a7d07863caadb72130d5826c",
+      "finalState": "verified_tsa",
+      "error": null,
+      "durationMs": 342.3,
+      "validationState": "Valid",
+      "codes": {
+        "success": [
+          "timeStamp.validated",
+          "timeStamp.trusted",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "assertion.hashedURI.match",
+          "assertion.hashedURI.match",
+          "assertion.hashedURI.match",
+          "assertion.hashedURI.match",
+          "assertion.hashedURI.match",
+          "assertion.hashedURI.match",
+          "assertion.dataHash.match"
+        ],
+        "informational": [],
+        "failure": [
+          "signingCredential.untrusted"
+        ],
+        "validation_status": [
+          "signingCredential.untrusted"
+        ]
+      },
+      "manifestSummary": {
+        "signer": {
+          "common_name": "Adobe C2PA",
+          "issuer": "Adobe Inc.",
+          "alg": "Ps256",
+          "time": "2025-10-23T20:55:49+00:00"
+        },
+        "tsa_info": {
+          "validated": true,
+          "time": "2025-10-23T20:55:49+00:00"
+        },
+        "validity_window": {
+          "inside_validity": true,
+          "expired": false
+        },
+        "contentCategory": "edited"
+      },
+      "requestsDuringVerification": [
+        {
+          "phase": "verify:crater-lake.jpg",
+          "target": "worker",
+          "method": "GET",
+          "url": "https://cai-manifests.adobe.com/manifests/urn-uuid-3ad678ce-1d4e-4bc0-a9ea-62185b89c815",
+          "kind": "outbound",
+          "outcome": "HTTP 200"
+        }
+      ],
+      "raw": {
+        "active_manifest": "urn:uuid:3ad678ce-1d4e-4bc0-a9ea-62185b89c815",
+        "validation_state": "Valid",
+        "validation_status": [
+          {
+            "code": "signingCredential.untrusted",
+            "url": "self#jumbf=/c2pa/urn:uuid:3ad678ce-1d4e-4bc0-a9ea-62185b89c815/c2pa.signature",
+            "explanation": "signing certificate untrusted"
+          }
+        ],
+        "validation_results": {
+          "activeManifest": {
+            "success": [
+              {
+                "code": "timeStamp.validated",
+                "url": "self#jumbf=/c2pa/urn:uuid:3ad678ce-1d4e-4bc0-a9ea-62185b89c815/c2pa.signature",
+                "explanation": "timestamp message digest matched: Adobe SHA256 ECC256 Timestamp Responder 2025 1"
+              },
+              {
+                "code": "timeStamp.trusted",
+                "url": "self#jumbf=/c2pa/urn:uuid:3ad678ce-1d4e-4bc0-a9ea-62185b89c815/c2pa.signature",
+                "explanation": "timestamp cert trusted: Adobe SHA256 ECC256 Timestamp Responder 2025 1"
+              },
+              {
+                "code": "claimSignature.insideValidity",
+                "url": "self#jumbf=/c2pa/urn:uuid:3ad678ce-1d4e-4bc0-a9ea-62185b89c815/c2pa.signature",
+                "explanation": "claim signature valid"
+              },
+              {
+                "code": "claimSignature.validated",
+                "url": "self#jumbf=/c2pa/urn:uuid:3ad678ce-1d4e-4bc0-a9ea-62185b89c815/c2pa.signature",
+                "explanation": "claim signature valid"
+              },
+              {
+                "code": "assertion.hashedURI.match",
+                "url": "self#jumbf=/c2pa/urn:uuid:3ad678ce-1d4e-4bc0-a9ea-62185b89c815/c2pa.assertions/c2pa.thumbnail.claim.jpeg",
+                "explanation": "hashed uri matched: self#jumbf=c2pa.assertions/c2pa.thumbnail.claim.jpeg"
+              },
+              {
+                "code": "assertion.hashedURI.match",
+                "url": "self#jumbf=/c2pa/urn:uuid:3ad678ce-1d4e-4bc0-a9ea-62185b89c815/c2pa.assertions/c2pa.thumbnail.ingredient.jpeg",
+                "explanation": "hashed uri matched: self#jumbf=c2pa.assertions/c2pa.thumbnail.ingredient.jpeg"
+              },
+              {
+                "code": "assertion.hashedURI.match",
+                "url": "self#jumbf=/c2pa/urn:uuid:3ad678ce-1d4e-4bc0-a9ea-62185b89c815/c2pa.assertions/c2pa.ingredient.v2",
+                "explanation": "hashed uri matched: self#jumbf=c2pa.assertions/c2pa.ingredient.v2"
+              },
+              {
+                "code": "assertion.hashedURI.match",
+                "url": "self#jumbf=/c2pa/urn:uuid:3ad678ce-1d4e-4bc0-a9ea-62185b89c815/c2pa.assertions/c2pa.actions",
+                "explanation": "hashed uri matched: self#jumbf=c2pa.assertions/c2pa.actions"
+              },
+              {
+                "code": "assertion.hashedURI.match",
+                "url": "self#jumbf=/c2pa/urn:uuid:3ad678ce-1d4e-4bc0-a9ea-62185b89c815/c2pa.assertions/stds.schema-org.CreativeWork",
+                "explanation": "hashed uri matched: self#jumbf=c2pa.assertions/stds.schema-org.CreativeWork"
+              },
+              {
+                "code": "assertion.hashedURI.match",
+                "url": "self#jumbf=/c2pa/urn:uuid:3ad678ce-1d4e-4bc0-a9ea-62185b89c815/c2pa.assertions/c2pa.hash.data",
+                "explanation": "hashed uri matched: self#jumbf=c2pa.assertions/c2pa.hash.data"
+              },
+              {
+                "code": "assertion.dataHash.match",
+                "url": "self#jumbf=/c2pa/urn:uuid:3ad678ce-1d4e-4bc0-a9ea-62185b89c815/c2pa.assertions/c2pa.hash.data",
+                "explanation": "data hash valid"
+              }
+            ],
+            "informational": [],
+            "failure": [
+              {
+                "code": "signingCredential.untrusted",
+                "url": "self#jumbf=/c2pa/urn:uuid:3ad678ce-1d4e-4bc0-a9ea-62185b89c815/c2pa.signature",
+                "explanation": "signing certificate untrusted"
+              }
+            ]
+          },
+          "ingredientDeltas": [
+            {
+              "ingredientAssertionURI": "self#jumbf=/c2pa/urn:uuid:3ad678ce-1d4e-4bc0-a9ea-62185b89c815/c2pa.assertions/c2pa.ingredient.v2",
+              "validationDeltas": {
+                "success": [],
+                "informational": [
+                  {
+                    "code": "ingredient.unknownProvenance",
+                    "url": "self#jumbf=/c2pa/urn:uuid:3ad678ce-1d4e-4bc0-a9ea-62185b89c815/c2pa.assertions/c2pa.ingredient.v2",
+                    "explanation": "crater-lake.jpeg: ingredient does not have provenance"
+                  }
+                ],
+                "failure": []
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "cloudscape.jpeg",
+      "mimeType": "image/jpeg",
+      "size": 678062,
+      "sha256": "eefaa04e4e2fe6d04a0473dc01ac64763281e666fadacf8e54db5cbe898c64cd",
+      "finalState": "invalid_or_changed",
+      "error": null,
+      "durationMs": 678.1,
+      "validationState": "Invalid",
+      "codes": {
+        "success": [
+          "timeStamp.validated",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "assertion.hashedURI.match",
+          "assertion.hashedURI.match",
+          "assertion.hashedURI.match",
+          "assertion.hashedURI.match",
+          "assertion.hashedURI.match",
+          "assertion.hashedURI.match",
+          "assertion.hashedURI.match",
+          "assertion.hashedURI.match",
+          "assertion.hashedURI.match",
+          "assertion.dataHash.match",
+          "cawg.ica.credential_valid",
+          "cawg.ica.credential_valid"
+        ],
+        "informational": [
+          "timeStamp.untrusted"
+        ],
+        "failure": [
+          "signingCredential.expired",
+          "signingCredential.untrusted"
+        ],
+        "validation_status": [
+          "signingCredential.expired",
+          "signingCredential.untrusted"
+        ]
+      },
+      "manifestSummary": {
+        "signer": {
+          "common_name": "Adobe Content Authenticity",
+          "issuer": "Adobe Inc.",
+          "alg": "Ps256",
+          "time": "2025-10-23T19:27:53+00:00"
+        },
+        "tsa_info": {
+          "validated": true,
+          "time": "2025-10-23T19:27:53+00:00"
+        },
+        "validity_window": {
+          "inside_validity": true,
+          "expired": true
+        },
+        "contentCategory": "edited"
+      },
+      "requestsDuringVerification": [
+        {
+          "phase": "verify:cloudscape.jpeg",
+          "target": "worker",
+          "method": "GET",
+          "url": "https://connected-identities.identity.adobe.com/.well-known/did.json",
+          "kind": "outbound",
+          "outcome": "HTTP 200"
+        }
+      ],
+      "raw": {
+        "active_manifest": "urn:c2pa:47febb04-4913-4a14-a1ac-5437b29fa302:adobe",
+        "validation_state": "Invalid",
+        "validation_status": [
+          {
+            "code": "signingCredential.expired",
+            "url": "self#jumbf=/c2pa/urn:c2pa:47febb04-4913-4a14-a1ac-5437b29fa302:adobe/c2pa.signature",
+            "explanation": "certificate expired"
+          },
+          {
+            "code": "signingCredential.untrusted",
+            "url": "self#jumbf=/c2pa/urn:c2pa:47febb04-4913-4a14-a1ac-5437b29fa302:adobe/c2pa.signature",
+            "explanation": "signing certificate untrusted"
+          }
+        ],
+        "validation_results": {
+          "activeManifest": {
+            "success": [
+              {
+                "code": "timeStamp.validated",
+                "url": "self#jumbf=/c2pa/urn:c2pa:47febb04-4913-4a14-a1ac-5437b29fa302:adobe/c2pa.signature",
+                "explanation": "timestamp message digest matched: Adobe SHA256 ECC256 Timestamp Responder 2025 1"
+              },
+              {
+                "code": "claimSignature.insideValidity",
+                "url": "self#jumbf=/c2pa/urn:c2pa:47febb04-4913-4a14-a1ac-5437b29fa302:adobe/c2pa.signature",
+                "explanation": "claim signature valid"
+              },
+              {
+                "code": "claimSignature.validated",
+                "url": "self#jumbf=/c2pa/urn:c2pa:47febb04-4913-4a14-a1ac-5437b29fa302:adobe/c2pa.signature",
+                "explanation": "claim signature valid"
+              },
+              {
+                "code": "assertion.hashedURI.match",
+                "url": "self#jumbf=/c2pa/urn:c2pa:47febb04-4913-4a14-a1ac-5437b29fa302:adobe/c2pa.assertions/c2pa.thumbnail.claim",
+                "explanation": "hashed uri matched: self#jumbf=c2pa.assertions/c2pa.thumbnail.claim"
+              },
+              {
+                "code": "assertion.hashedURI.match",
+                "url": "self#jumbf=/c2pa/urn:c2pa:47febb04-4913-4a14-a1ac-5437b29fa302:adobe/c2pa.assertions/c2pa.ingredient.v3",
+                "explanation": "hashed uri matched: self#jumbf=c2pa.assertions/c2pa.ingredient.v3"
+              },
+              {
+                "code": "assertion.hashedURI.match",
+                "url": "self#jumbf=/c2pa/urn:c2pa:47febb04-4913-4a14-a1ac-5437b29fa302:adobe/c2pa.assertions/c2pa.actions.v2",
+                "explanation": "hashed uri matched: self#jumbf=c2pa.assertions/c2pa.actions.v2"
+              },
+              {
+                "code": "assertion.hashedURI.match",
+                "url": "self#jumbf=/c2pa/urn:c2pa:47febb04-4913-4a14-a1ac-5437b29fa302:adobe/c2pa.assertions/c2pa.hash.data",
+                "explanation": "hashed uri matched: self#jumbf=c2pa.assertions/c2pa.hash.data"
+              },
+              {
+                "code": "assertion.hashedURI.match",
+                "url": "self#jumbf=/c2pa/urn:c2pa:47febb04-4913-4a14-a1ac-5437b29fa302:adobe/c2pa.assertions/cawg.training-mining",
+                "explanation": "hashed uri matched: self#jumbf=c2pa.assertions/cawg.training-mining"
+              },
+              {
+                "code": "assertion.hashedURI.match",
+                "url": "self#jumbf=/c2pa/urn:c2pa:47febb04-4913-4a14-a1ac-5437b29fa302:adobe/c2pa.assertions/c2pa.training-mining",
+                "explanation": "hashed uri matched: self#jumbf=c2pa.assertions/c2pa.training-mining"
+              },
+              {
+                "code": "assertion.hashedURI.match",
+                "url": "self#jumbf=/c2pa/urn:c2pa:47febb04-4913-4a14-a1ac-5437b29fa302:adobe/c2pa.assertions/c2pa.soft-binding",
+                "explanation": "hashed uri matched: self#jumbf=c2pa.assertions/c2pa.soft-binding"
+              },
+              {
+                "code": "assertion.hashedURI.match",
+                "url": "self#jumbf=/c2pa/urn:c2pa:47febb04-4913-4a14-a1ac-5437b29fa302:adobe/c2pa.assertions/c2pa.soft-binding__1",
+                "explanation": "hashed uri matched: self#jumbf=c2pa.assertions/c2pa.soft-binding__1"
+              },
+              {
+                "code": "assertion.hashedURI.match",
+                "url": "self#jumbf=/c2pa/urn:c2pa:47febb04-4913-4a14-a1ac-5437b29fa302:adobe/c2pa.assertions/cawg.identity",
+                "explanation": "hashed uri matched: self#jumbf=c2pa.assertions/cawg.identity"
+              },
+              {
+                "code": "assertion.dataHash.match",
+                "url": "self#jumbf=/c2pa/urn:c2pa:47febb04-4913-4a14-a1ac-5437b29fa302:adobe/c2pa.assertions/c2pa.hash.data",
+                "explanation": "data hash valid"
+              },
+              {
+                "code": "cawg.ica.credential_valid",
+                "url": "self#jumbf=/c2pa/urn:c2pa:47febb04-4913-4a14-a1ac-5437b29fa302:adobe/c2pa.assertions/cawg.identity",
+                "explanation": "ICA credential is valid"
+              },
+              {
+                "code": "cawg.ica.credential_valid",
+                "url": "self#jumbf=/c2pa/urn:c2pa:47febb04-4913-4a14-a1ac-5437b29fa302:adobe/c2pa.assertions/cawg.identity",
+                "explanation": "CAWG identity_claims_aggregation signature valid"
+              }
+            ],
+            "informational": [
+              {
+                "code": "timeStamp.untrusted",
+                "url": "self#jumbf=/c2pa/urn:c2pa:47febb04-4913-4a14-a1ac-5437b29fa302:adobe/c2pa.signature",
+                "explanation": "timestamp cert untrusted: Adobe SHA256 ECC256 Timestamp Responder 2025 1"
+              }
+            ],
+            "failure": [
+              {
+                "code": "signingCredential.expired",
+                "url": "self#jumbf=/c2pa/urn:c2pa:47febb04-4913-4a14-a1ac-5437b29fa302:adobe/c2pa.signature",
+                "explanation": "certificate expired"
+              },
+              {
+                "code": "signingCredential.untrusted",
+                "url": "self#jumbf=/c2pa/urn:c2pa:47febb04-4913-4a14-a1ac-5437b29fa302:adobe/c2pa.signature",
+                "explanation": "signing certificate untrusted"
+              }
+            ]
+          },
+          "ingredientDeltas": [
+            {
+              "ingredientAssertionURI": "self#jumbf=/c2pa/urn:c2pa:47febb04-4913-4a14-a1ac-5437b29fa302:adobe/c2pa.assertions/c2pa.ingredient.v3",
+              "validationDeltas": {
+                "success": [],
+                "informational": [
+                  {
+                    "code": "ingredient.unknownProvenance",
+                    "url": "self#jumbf=/c2pa/urn:c2pa:47febb04-4913-4a14-a1ac-5437b29fa302:adobe/c2pa.assertions/c2pa.ingredient.v3",
+                    "explanation": "cloudscape.jpeg: ingredient does not have provenance"
+                  }
+                ],
+                "failure": []
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "sora.MP4",
+      "mimeType": "video/mp4",
+      "size": 5278370,
+      "sha256": "7d750b0c9cb9c1ab162a067cf128213590da2b858f2e1de336190427a77f75cf",
+      "finalState": "invalid_or_changed",
+      "error": null,
+      "durationMs": 62.7,
+      "validationState": "Invalid",
+      "codes": {
+        "success": [
+          "timeStamp.validated",
+          "claimSignature.insideValidity",
+          "claimSignature.validated",
+          "assertion.hashedURI.match",
+          "assertion.hashedURI.match",
+          "assertion.bmffHash.match"
+        ],
+        "informational": [
+          "timeStamp.untrusted"
+        ],
+        "failure": [
+          "signingCredential.expired",
+          "signingCredential.untrusted"
+        ],
+        "validation_status": [
+          "signingCredential.expired",
+          "signingCredential.untrusted"
+        ]
+      },
+      "manifestSummary": {
+        "signer": {
+          "common_name": "Truepic Lens CLI in Sora",
+          "issuer": "OpenAI",
+          "alg": "Es256",
+          "time": "2025-10-10T03:06:10+00:00"
+        },
+        "tsa_info": {
+          "validated": true,
+          "time": "2025-10-10T03:06:10+00:00"
+        },
+        "validity_window": {
+          "inside_validity": true,
+          "expired": true
+        },
+        "contentCategory": "ai_generated"
+      },
+      "requestsDuringVerification": [],
+      "raw": {
+        "active_manifest": "urn:c2pa:bcf81c7f-d40f-4f4b-8e2e-4ad2b62dd90a",
+        "validation_state": "Invalid",
+        "validation_status": [
+          {
+            "code": "signingCredential.expired",
+            "url": "self#jumbf=/c2pa/urn:c2pa:bcf81c7f-d40f-4f4b-8e2e-4ad2b62dd90a/c2pa.signature",
+            "explanation": "certificate expired"
+          },
+          {
+            "code": "signingCredential.untrusted",
+            "url": "self#jumbf=/c2pa/urn:c2pa:bcf81c7f-d40f-4f4b-8e2e-4ad2b62dd90a/c2pa.signature",
+            "explanation": "signing certificate untrusted"
+          }
+        ],
+        "validation_results": {
+          "activeManifest": {
+            "success": [
+              {
+                "code": "timeStamp.validated",
+                "url": "self#jumbf=/c2pa/urn:c2pa:bcf81c7f-d40f-4f4b-8e2e-4ad2b62dd90a/c2pa.signature",
+                "explanation": "timestamp message digest matched: DigiCert SHA256 RSA4096 Timestamp Responder 2025 1"
+              },
+              {
+                "code": "claimSignature.insideValidity",
+                "url": "self#jumbf=/c2pa/urn:c2pa:bcf81c7f-d40f-4f4b-8e2e-4ad2b62dd90a/c2pa.signature",
+                "explanation": "claim signature valid"
+              },
+              {
+                "code": "claimSignature.validated",
+                "url": "self#jumbf=/c2pa/urn:c2pa:bcf81c7f-d40f-4f4b-8e2e-4ad2b62dd90a/c2pa.signature",
+                "explanation": "claim signature valid"
+              },
+              {
+                "code": "assertion.hashedURI.match",
+                "url": "self#jumbf=/c2pa/urn:c2pa:bcf81c7f-d40f-4f4b-8e2e-4ad2b62dd90a/c2pa.assertions/c2pa.actions.v2",
+                "explanation": "hashed uri matched: self#jumbf=c2pa.assertions/c2pa.actions.v2"
+              },
+              {
+                "code": "assertion.hashedURI.match",
+                "url": "self#jumbf=/c2pa/urn:c2pa:bcf81c7f-d40f-4f4b-8e2e-4ad2b62dd90a/c2pa.assertions/c2pa.hash.bmff.v3",
+                "explanation": "hashed uri matched: self#jumbf=c2pa.assertions/c2pa.hash.bmff.v3"
+              },
+              {
+                "code": "assertion.bmffHash.match",
+                "url": "self#jumbf=/c2pa/urn:c2pa:bcf81c7f-d40f-4f4b-8e2e-4ad2b62dd90a/c2pa.assertions/c2pa.hash.bmff.v3",
+                "explanation": "BMFF hash valid"
+              }
+            ],
+            "informational": [
+              {
+                "code": "timeStamp.untrusted",
+                "url": "self#jumbf=/c2pa/urn:c2pa:bcf81c7f-d40f-4f4b-8e2e-4ad2b62dd90a/c2pa.signature",
+                "explanation": "timestamp cert untrusted: DigiCert SHA256 RSA4096 Timestamp Responder 2025 1"
+              }
+            ],
+            "failure": [
+              {
+                "code": "signingCredential.expired",
+                "url": "self#jumbf=/c2pa/urn:c2pa:bcf81c7f-d40f-4f4b-8e2e-4ad2b62dd90a/c2pa.signature",
+                "explanation": "certificate expired"
+              },
+              {
+                "code": "signingCredential.untrusted",
+                "url": "self#jumbf=/c2pa/urn:c2pa:bcf81c7f-d40f-4f4b-8e2e-4ad2b62dd90a/c2pa.signature",
+                "explanation": "signing certificate untrusted"
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "otherRequests": [
+    {
+      "phase": "page-load",
+      "target": "page",
+      "method": "GET",
+      "url": "http://127.0.0.1:51863/",
+      "kind": "loopback",
+      "outcome": "HTTP 200"
+    },
+    {
+      "phase": "page-load",
+      "target": "page",
+      "method": "GET",
+      "url": "http://127.0.0.1:51863/harness-bundle.js",
+      "kind": "loopback",
+      "outcome": "HTTP 200"
+    },
+    {
+      "phase": "engine-init",
+      "target": "page",
+      "method": "GET",
+      "url": "blob:http://127.0.0.1:51863/bec5c35d-7914-4fbd-96b2-4ef09d844658",
+      "kind": "local-scheme",
+      "outcome": "no response recorded"
+    },
+    {
+      "phase": "capture-self-test",
+      "target": "page",
+      "method": "GET",
+      "url": "blob:http://127.0.0.1:51863/310fcc7c-3ec0-443a-816f-ca4854af10e4",
+      "kind": "local-scheme",
+      "outcome": "no response recorded"
+    },
+    {
+      "phase": "capture-self-test",
+      "target": "worker",
+      "method": "GET",
+      "url": "https://engine-check-capture-selftest.invalid/",
+      "kind": "outbound",
+      "outcome": "failed: net::ERR_NAME_NOT_RESOLVED"
+    },
+    {
+      "phase": "load:car.jpg",
+      "target": "page",
+      "method": "GET",
+      "url": "http://127.0.0.1:51863/assets/car.jpg",
+      "kind": "loopback",
+      "outcome": "HTTP 200"
+    },
+    {
+      "phase": "load:ChatGPTgen.png",
+      "target": "page",
+      "method": "GET",
+      "url": "http://127.0.0.1:51863/assets/ChatGPTgen.png",
+      "kind": "loopback",
+      "outcome": "HTTP 200"
+    },
+    {
+      "phase": "load:crater-lake.jpg",
+      "target": "page",
+      "method": "GET",
+      "url": "http://127.0.0.1:51863/assets/crater-lake.jpg",
+      "kind": "loopback",
+      "outcome": "HTTP 200"
+    },
+    {
+      "phase": "load:cloudscape.jpeg",
+      "target": "page",
+      "method": "GET",
+      "url": "http://127.0.0.1:51863/assets/cloudscape.jpeg",
+      "kind": "loopback",
+      "outcome": "HTTP 200"
+    },
+    {
+      "phase": "load:sora.MP4",
+      "target": "page",
+      "method": "GET",
+      "url": "http://127.0.0.1:51863/assets/sora.MP4",
+      "kind": "loopback",
+      "outcome": "HTTP 200"
+    }
+  ],
+  "consoleWarningsAndErrors": [],
+  "attachErrors": []
+}
