@@ -63,7 +63,7 @@ available for `MP4-Badge`, which has no PR of its own), or
 
 From `gh pr list --state merged --limit 100` (19 Oct 2026). None of these
 branches exist in this repository any more (`git ls-remote --heads origin`).
-#2 and #8 were closed without merging and are not listed.
+PRs #2 and #8 were closed without merging and are not listed.
 
 | PR | Branch | Merged |
 |---|---|---|
