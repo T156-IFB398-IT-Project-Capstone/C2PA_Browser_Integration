@@ -1,0 +1,1 @@
+[{"byteLength":580124,"detectedAt":1791296113189,"fetchMs":7.5,"heapAfterBytes":44836478,"heapBeforeBytes":44798160,"heapDeltaBytes":38318,"kind":"image","messageRoundTripMs":221,"resultAt":1791296113419,"status":"verified_tsa","totalLatencyMs":230,"url":"http://127.0.0.1:8975/fixtures/car.jpg?i=1","verifyStartedAt":1791296113190,"wasmVerifyMs":81.4}]
