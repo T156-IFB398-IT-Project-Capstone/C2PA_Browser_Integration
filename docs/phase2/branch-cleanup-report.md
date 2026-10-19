@@ -107,8 +107,11 @@ After each deletion: `git ls-remote --heads origin <branch>` returned 0 lines,
 
 **Status: PR open, merge pending** (Lucas to confirm the merge). The merge
 commit `f580d5a` now lives on branch `chore/merge-perf-results`, not on
-`perf/run-2026-10-07`, which stays at `1f34c3e` on GitHub (Section 13). PR
-number: to be added.
+`perf/run-2026-10-07`, which stays at `1f34c3e` on GitHub (Section 13). PR:
+**#28** "Merge performance results (run 2026-10-07) and record merged
+branches" (`chore/merge-perf-results` → `main`), opened 19 Oct 2026 14:00.
+CI "Build and static checks" passed on `c027858` (Actions run
+39197390889); `gh pr view 28`: `MERGEABLE`, `CLEAN`.
 
 - Content confirmed: `1f34c3e` is the only commit on the branch not in `main`
   (`git cherry`). It touches 16 files: `perf/results/2026-10-07/` (README,
@@ -440,5 +443,11 @@ and `3496e4b`. `f580d5a` is also kept by `chore/merge-perf-results`.
   points" (`docs/phase2/merged-branches-record.md`). A first `git commit`
   attempt in the same shell call failed before running, because a log
   placeholder was parsed as a redirect; it created no file and no commit.
-- Then this report and `docs/genai-log/2026-10.md`, as separate commits; push
-  of the branch and the PR into `main` (number in Section 4).
+- 13:59–14:00: `4542aa3` (record wording fix), `3ab87c8` (this report),
+  `c027858` (genai-log entry, append-only: `git diff` showed 25 additions,
+  0 deletions).
+- 14:00:33: `git diff --stat origin/main...HEAD` → 18 files, 1446
+  insertions, 8 deletions; `git push -u origin chore/merge-perf-results`
+  (new branch at `c027858`; `perf/run-2026-10-07` still `1f34c3e`).
+- 14:00: `gh pr create --base main --head chore/merge-perf-results` → PR #28;
+  `gh pr checks 28 --watch` → "Build and static checks" pass.
