@@ -42,7 +42,12 @@ if (files.length === 0) {
 
 console.log(`[run-tests] ${files.length} test files`);
 
-const child = spawn(process.execPath, ['--test', '--test-reporter=spec', ...files], {
+// --import preloads a module hook so test files can import offscreen.js, which
+// imports the bundled trust-list .pem files (text, as esbuild bundles them).
+// node --test passes --import on to each test file's child process.
+const PRELOAD = './tests/unit/helpers/register-pem.mjs';
+
+const child = spawn(process.execPath, ['--import', PRELOAD, '--test', '--test-reporter=spec', ...files], {
   cwd: ROOT,
   stdio: 'inherit',
 });

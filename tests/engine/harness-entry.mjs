@@ -10,9 +10,11 @@
 // run.mjs calls the functions on window.__engineCheck one phase at a time and
 // records every network request made while each phase runs.
 
+import { createC2pa } from '@contentauth/c2pa-web/inline';
 import {
   verifyDetailed,
   engineInitStatus,
+  determineStatus,
   ENGINE_SETTINGS,
 } from '../../extension/src/offscreen/offscreen.js';
 import { VERIFY_STATUS } from '../../extension/src/shared/constants.js';
@@ -79,12 +81,43 @@ function captureSelfTest() {
   });
 }
 
+// TEST-ONLY trust-anchor control. A separate engine instance gets the
+// production settings with ONE extra CA certificate appended to the end of the
+// production anchor string — a certificate taken from the asset's own embedded
+// chain. If the asset then reports signingCredential.trusted, the engine is
+// really applying trust.trustAnchors and has parsed the whole production PEM
+// string. Never used by the extension; nothing here is shipped.
+async function controlVerify(name, extraCaPem) {
+  const payload = loaded.get(name);
+  if (!payload) throw new Error(`asset ${name} was not loaded first`);
+  const settings = {
+    ...ENGINE_SETTINGS,
+    trust: {
+      ...ENGINE_SETTINGS.trust,
+      trustAnchors: `${ENGINE_SETTINGS.trust?.trustAnchors ?? ''}\n${extraCaPem.trim()}\n`,
+    },
+  };
+  const sdk = await createC2pa({ settings });
+  const reader = await sdk.reader.fromBlob(payload.mimeType, new Blob([payload.bytes], { type: payload.mimeType }));
+  const store = reader ? await reader.manifestStore() : null;
+  return {
+    status: determineStatus(store),
+    raw: store && {
+      active_manifest: store.active_manifest ?? null,
+      validation_state: store.validation_state ?? null,
+      validation_status: store.validation_status ?? null,
+      validation_results: store.validation_results ?? null,
+    },
+  };
+}
+
 window.__engineCheck = {
   settings: () => ENGINE_SETTINGS,
   initStatus: () => engineInitStatus(),
   captureSelfTest,
   load,
   verify: verifyAsset,
+  controlVerify,
 };
 window.__engineCheckReady = true;
 document.getElementById('status').textContent = 'Engine-check bundle loaded.';

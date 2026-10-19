@@ -1,0 +1,4 @@
+# Trust-list PEMs are committed byte-for-byte as published upstream. No
+# line-ending conversion, so their SHA-256 always matches SOURCE.json and the
+# upstream files (core.autocrlf would otherwise rewrite them on checkout).
+trust-lists/**/*.pem -text

@@ -11,18 +11,31 @@
 import { createC2pa }               from '@contentauth/c2pa-web/inline';
 import { MSG }                       from '../shared/messages.js';
 import { VERIFY_STATUS }             from '../shared/constants.js';
+// Official C2PA Trust List + TSA Trust List, bundled as text at build time
+// (esbuild '.pem' text loader). Provenance: trust-lists/c2pa-conformance/SOURCE.json;
+// decision: docs/phase2/decisions/2026-10-19-trust-anchors.md.
+import C2PA_TRUST_LIST              from '../../../trust-lists/c2pa-conformance/C2PA-TRUST-LIST.pem';
+import C2PA_TSA_TRUST_LIST          from '../../../trust-lists/c2pa-conformance/C2PA-TSA-TRUST-LIST.pem';
 
 // ── SDK singleton ─────────────────────────────────────────────────────────────
 // Defer initialisation to the first verification request so the offscreen
 // document starts up fast. Reuse the same instance for all subsequent calls.
 let _sdkPromise = null;
-let _initFallbackError = null;
+
+// Trust anchors for C2PA claim signers and time-stamping authorities, as ONE
+// PEM string. Never a URL or an array: c2pa-web fetches those over the network
+// (constraint 3 — verification is local). The list is as current as the
+// release that ships it; it is not live trust-list validation.
+export const TRUST_ANCHORS_PEM = `${C2PA_TRUST_LIST.trim()}\n${C2PA_TSA_TRUST_LIST.trim()}\n`;
 
 // Settings passed to createC2pa(). Exported so the engine-level check
 // (tests/engine/) can report and assert what the engine was configured with.
-// Note: cawgTrust applies to CAWG identity assertions only; it does not
-// configure trust for C2PA signers (final QA 12 Oct, risk R20).
+// cawgTrust applies to CAWG identity assertions only; trust.trustAnchors is
+// what lets a C2PA signer be trusted (final QA 12 Oct, risk R20).
 export const ENGINE_SETTINGS = Object.freeze({
+  trust: {
+    trustAnchors: TRUST_ANCHORS_PEM,
+  },
   cawgTrust: {
     verifyTrustList: true
   }
@@ -31,9 +44,13 @@ export const ENGINE_SETTINGS = Object.freeze({
 function getSdk() {
   if (!_sdkPromise) {
     _sdkPromise = createC2pa({ settings: ENGINE_SETTINGS }).catch(err => {
-      console.warn('[c2pa-offscreen] Failed init with trust settings, falling back to default:', err);
-      _initFallbackError = err?.message ?? String(err);
-      return createC2pa();
+      // No silent fallback to SDK defaults: without ENGINE_SETTINGS the engine
+      // would trust no signer and follow remote links, while the UI would not
+      // know. Every request gets an error result instead (see the onMessage
+      // listener); the next request retries initialisation.
+      _sdkPromise = null;
+      console.error('[c2pa-offscreen] Engine initialisation with ENGINE_SETTINGS failed:', err);
+      throw new Error(`Verification engine could not start with its settings: ${err?.message ?? err}`);
     });
   }
   return _sdkPromise;
@@ -41,11 +58,15 @@ function getSdk() {
 
 /**
  * Engine-level check support: initialise the SDK and report whether it is
- * running with ENGINE_SETTINGS or fell back to SDK defaults.
+ * running with ENGINE_SETTINGS (there is no fallback to SDK defaults).
  */
 export async function engineInitStatus() {
-  await getSdk();
-  return { settingsApplied: _initFallbackError === null, fallbackError: _initFallbackError };
+  try {
+    await getSdk();
+    return { settingsApplied: true, error: null };
+  } catch (err) {
+    return { settingsApplied: false, error: err?.message ?? String(err) };
+  }
 }
 
 // ── Message listener ──────────────────────────────────────────────────────────
