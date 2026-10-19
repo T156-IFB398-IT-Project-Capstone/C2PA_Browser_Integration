@@ -6,6 +6,10 @@ A Chromium browser extension that detects images and video (MP4) on web pages, r
 
 ## Status
 
+**v1.0.0 handover (October 2026).** Verification makes no network request. Credentials that are stored only online are reported as "not checked" instead of being fetched. Evidence: `docs/phase2/engine-check/` and the decision `docs/phase2/decisions/2026-10-19-no-network-verification.md`.
+
+The official C2PA trust lists are bundled as trust anchors and updated with each release, so this is not live trust-list validation (`docs/phase2/decisions/2026-10-19-trust-anchors.md`). The engine is `@contentauth/c2pa-web` 0.13.1, pinned exactly. Limitations are in [`KNOWN_LIMITATIONS.md`](KNOWN_LIMITATIONS.md). The engine-level check runs the real verifier in Chrome; see [`tests/engine/README.md`](tests/engine/README.md).
+
 Phase 1 (Semester 1) proof-of-concept complete. Extension-only architecture validated end-to-end with real C2PA verification via WebAssembly, for images.
 
 Phase 2 (Semester 2): SPIKE-001 confirmed `c2pa-web` parses and validates MP4's BMFF hard binding against a real signed asset (Outcome A — see `docs/phase2/spike-001-mp4-verification.md`), and the scan pipeline (content-script discovery → service worker → offscreen WASM verifier) now handles video the same way it handles images. Known follow-ups tracked in `docs/phase2/`: remux survival is still untested (Q3, blocked on a fixture), and a signing-certificate-expiry effect (`finding-001`) means a legitimately-signed asset can read as invalid once its signer's certificate lapses — independent of video, applies to any format.
@@ -148,8 +152,26 @@ What is covered:
 - **Background:** result cache, scan queue, tab media registry, and
   `fetchAsBytes` with a stubbed `fetch`.
 
+- **Engine settings:** the bundled trust lists against `trust-lists/c2pa-conformance/SOURCE.json`,
+  the one-PEM-string form, no network settings, and no silent fallback when the engine
+  rejects its settings.
+
 Popup, content-script and detail-page rendering need a browser and are not
 covered here.
+
+### Engine-level check
+
+The unit tests replace c2pa-web with a stand-in. They cannot show what the real engine
+does with the extension's settings. The engine-level check runs the real verifier in
+headless Chrome over the samples in `test-assets/trusted/`. It records the state, the raw
+SDK result and every network request:
+
+```bash
+node tests/engine/run.mjs --out docs/phase2/engine-check/<label>
+```
+
+Run it after any change to the engine, its settings or the trust lists. See
+[`tests/engine/README.md`](tests/engine/README.md); results are in `docs/phase2/engine-check/`.
 
 Tests named `KNOWN ISSUE …` pin current behaviour that is known to be wrong:
 finding-001, and the popup Shield reading "authentic" for a manifest with no
