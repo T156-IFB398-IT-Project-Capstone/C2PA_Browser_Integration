@@ -69,8 +69,32 @@ describe('verify() with a stand-in SDK', () => {
     const res = await verifyDetailed({ bytes: [0xff, 0xd8], mimeType: 'image/jpeg' });
     assert.equal(res.status, (await verifyStore(store)).status);
     assert.deepEqual(Object.keys(res.raw).sort(),
-      ['active_manifest', 'validation_results', 'validation_state', 'validation_status']);
+      ['active_manifest', 'remote_manifest_url', 'validation_results', 'validation_state', 'validation_status']);
     assert.equal(res.raw.validation_state, store.validation_state);
+    assert.equal(res.raw.remote_manifest_url, null);
+  });
+
+  // c2pa-web's error when verify.remoteManifestFetch is off and the asset only
+  // links to a manifest stored online (seen in the engine-level check).
+  const REMOTE_ERR = 'C2pa(RemoteManifestUrl("https://cai-manifests.adobe.com/manifests/urn-uuid-x"))';
+
+  test('remote manifest not fetched -> remote_not_checked, not an error', async () => {
+    fakeSdk.setError(new Error(REMOTE_ERR));
+    const res = await verify({ bytes: [0xff, 0xd8], mimeType: 'image/jpeg' });
+    assert.equal(res.status, S.REMOTE_NOT_CHECKED);
+    assert.equal(res.manifest, null);
+    assert.equal(res.error, null);
+  });
+
+  test('verifyDetailed() records the remote manifest URL it did not fetch', async () => {
+    fakeSdk.setError(new Error(REMOTE_ERR));
+    const res = await verifyDetailed({ bytes: [0xff, 0xd8], mimeType: 'image/jpeg' });
+    assert.equal(res.raw.remote_manifest_url, 'https://cai-manifests.adobe.com/manifests/urn-uuid-x');
+  });
+
+  test('remote_not_checked gets no Shield badge (nothing was checked)', async () => {
+    fakeSdk.setError(new Error(REMOTE_ERR));
+    assert.equal(pickBadgeState(await verify({ bytes: [0xff, 0xd8], mimeType: 'image/jpeg' })), null);
   });
 
   test('manifest-car: signer, TSA and edit history are extracted', async () => {

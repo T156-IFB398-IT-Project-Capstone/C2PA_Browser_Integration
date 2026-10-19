@@ -400,6 +400,16 @@ function renderItem(item) {
     body.appendChild(note);
   }
 
+  // Remote manifest not fetched (verification stays local) — say what that
+  // means without implying anything is wrong with the media.
+  if (item.status === VERIFY_STATUS.REMOTE_NOT_CHECKED) {
+    const note = document.createElement('div');
+    note.className   = 'result-meta';
+    note.textContent = `This ${item.kind === 'video' ? 'video' : 'image'} points to Content Credentials ` +
+      'stored online. They were not checked, to keep your browsing private.';
+    body.appendChild(note);
+  }
+
   if (item.manifest) {
   const parts = [];
 

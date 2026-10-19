@@ -81,6 +81,11 @@ export const VERIFY_STATUS = Object.freeze({
   INVALID_OR_CHANGED: 'invalid_or_changed',
   NO_CREDENTIALS:     'no_credentials',
   UNSUPPORTED_FORMAT: 'unsupported_format',
+  // The asset only links to Content Credentials stored online (a remote
+  // manifest). The engine does not fetch them (verify.remoteManifestFetch is
+  // off — verification stays local), so nothing was checked. Neutral: not an
+  // error, not tampered, not "no credentials".
+  REMOTE_NOT_CHECKED: 'remote_not_checked',
 });
 
 // Maximum asset size forwarded to the offscreen verifier.

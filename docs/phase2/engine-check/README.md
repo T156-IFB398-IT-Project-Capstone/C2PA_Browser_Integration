@@ -11,6 +11,7 @@ asset and every recorded network request.
 |---|---|---|
 | Before the QA fixes (19 Oct 2026, commit `3ab97f5`) | `cawgTrust.verifyTrustList: true` only (as shipped since PR #11) | [`before/`](before/README.md) |
 | After trust anchors (19 Oct 2026, commit `95f47e5`) | + `trust.trustAnchors`: official C2PA Trust List + TSA Trust List, one PEM string (55 certificates) | [`after-trust-anchors/`](after-trust-anchors/README.md) |
+| After remote manifests off (19 Oct 2026, commit `5036bfc`) | + `verify.remoteManifestFetch: false`, `core.decodeIdentityAssertions: false` | [`after-remote-manifests/`](after-remote-manifests/README.md) |
 
 ## What the "before" run shows
 
@@ -60,3 +61,17 @@ Evidence: [`after-trust-anchors/README.md`](after-trust-anchors/README.md); deci
   reports `signingCredential.untrusted`. This is the real outcome; nothing was tuned.
 - The outbound requests are unchanged (`crater-lake.jpg`, `cloudscape.jpeg`). They
   are addressed by the remote-manifest fix.
+
+## What the "after remote manifests off" run shows
+
+Evidence: [`after-remote-manifests/README.md`](after-remote-manifests/README.md); decision:
+[`../decisions/2026-10-19-no-network-verification.md`](../decisions/2026-10-19-no-network-verification.md).
+
+- All four checks **PASS**. In particular, `remote-manifests-local` found **no
+  outbound request** during engine initialisation or any verification. The
+  capture self-test passed in the same run.
+- `crater-lake.jpg` now reads `remote_not_checked`: the engine reported its
+  remote manifest URL and refused to fetch it.
+- `cloudscape.jpeg` no longer fetches the DID document, because identity
+  assertions are not decoded. Its state is unchanged (`invalid_or_changed`).
+- `car.jpg`, `ChatGPTgen.png` and `sora.MP4` are unchanged.

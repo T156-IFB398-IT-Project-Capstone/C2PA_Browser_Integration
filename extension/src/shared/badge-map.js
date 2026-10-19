@@ -7,8 +7,10 @@
 //
 // Only statuses where the hash binding and signature are cryptographically
 // intact are badge-eligible. CONTENT_TAMPERED, BROKEN_SIGNATURE,
-// INVALID_OR_CHANGED, NO_CREDENTIALS, UNSUPPORTED_FORMAT, and 'error' get no
-// badge — the existing text status label already covers them honestly.
+// INVALID_OR_CHANGED, NO_CREDENTIALS, UNSUPPORTED_FORMAT, REMOTE_NOT_CHECKED
+// and 'error' get no badge — the existing text status label already covers
+// them honestly. REMOTE_NOT_CHECKED in particular: the credentials are stored
+// online and were not fetched, so nothing about them was checked.
 // Forcing one of these four "authentic" states onto a failed/absent case
 // would be exactly the traffic-light overclaim CLAUDE.md's Hard Constraint
 // #4 rules out. Applies identically to image and video results — the
