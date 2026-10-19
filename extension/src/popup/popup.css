@@ -70,6 +70,68 @@ body {
 .brand-title { font-weight: 600; line-height: 1.2; }
 .brand-sub   { font-size: 11px; color: var(--text-muted); }
 
+.header-actions { display: flex; align-items: center; gap: 8px; }
+
+/* ---------- ON/OFF switch ----------
+   Accent blue when on, neutral grey when off — not a green/red pair
+   (CLAUDE.md constraint #4). The real checkbox sits invisibly over the
+   track so it keeps native keyboard and screen-reader behaviour. */
+.power-switch {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--text-muted);
+  user-select: none;
+}
+.power-input {
+  position: absolute;
+  right: 22px;          /* over the track, left of the state word */
+  width: 28px;
+  height: 16px;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.power-track {
+  position: relative;
+  width: 28px;
+  height: 16px;
+  border-radius: 8px;
+  background: var(--neutral);
+  transition: background .15s ease;
+}
+.power-track::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform .15s ease;
+}
+.power-input:checked + .power-track { background: var(--accent); }
+.power-input:checked + .power-track::after { transform: translateX(12px); }
+.power-input:focus-visible + .power-track { outline: 2px solid var(--accent); outline-offset: 2px; }
+.power-state { width: 16px; font-weight: 600; color: var(--text); }
+
+/* Checking off: hide the last scan's results so no Shield logos show.
+   They come back unchanged when the switch is turned on again. */
+body.is-off #results,
+body.is-off #scan-meta,
+body.is-off #empty { display: none !important; }
+
+.off-note {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
 .icon-btn {
   background: transparent;
   border: 1px solid transparent;

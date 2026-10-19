@@ -24,6 +24,8 @@ import { MSG, msg } from '../shared/messages.js';
 import { ResultCache } from '../shared/result-cache.js';
 import { ScanQueue } from './scan-queue.js';
 import { TabMediaRegistry } from './tab-media-registry.js';
+import { createSettings } from '../shared/settings.js';
+import { createChromeSettingsStore } from '../shared/chrome-settings-store.js';
 import {
   STORAGE_KEYS,
   SUPPORTED_MIME_TYPES,
@@ -44,6 +46,7 @@ import {
 const scanQueue = new ScanQueue({ maxAge: 60_000 });
 const resultCache = new ResultCache();
 const tabMediaRegistry = new TabMediaRegistry();
+const settings = createSettings(createChromeSettingsStore());
 
 // ---------------------------------------------------------------------------
 // MV3 keepalive alarm
@@ -355,6 +358,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         // ── Verification ─────────────────────────────────────────────────── //
 
         case MSG.SCAN_ACTIVE_TAB: {
+          // ON/OFF control: when checking is off, nothing is fetched or verified.
+          if (!(await settings.isEnabled())) {
+            sendResponse({ ok: false, error: 'Content Credentials checking is off.' });
+            return;
+          }
           const summary = await scanActiveTab();
           sendResponse({ ok: true, summary });
           return;

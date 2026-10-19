@@ -25,6 +25,12 @@
   const MSG_SCAN_COMPLETE    = 'c2pa/scan_complete';
   const MSG_SCROLL_TO_MEDIA  = 'c2pa/scroll_to_media';
   const MIN_REANNOUNCE_MS    = 2_000;  // rate-limit for realtime tracking messages
+  const SETTINGS_KEY         = 'c2pa.settings';  // STORAGE_KEYS.SETTINGS
+
+  /** ON/OFF control state: null until the saved setting has been read. */
+  let _enabled = null;
+  /** Last scan's results on this page, kept so switching back on can redraw its badges. */
+  let _lastResults = [];
 
   // Badge selection runs on TWO axes:
   //
@@ -279,18 +285,15 @@
     }
 
     if (message?.type === MSG_SCAN_COMPLETE) {
+      // A scan can finish just after the user switches checking off.
+      if (_enabled === false) return false;
       // Background finished verifying — annotate any <img> or <video> whose
       // result resolves to a badge (see pickBadge: trust-gated content
       // category, or "unverifiable", or nothing). res.kind is carried through
       // from discoverMedia() by the service worker's scan results, so a
       // video result is matched against <video>/<source> rather than <img>.
-      const results = message.payload?.summary?.results ?? [];
-      for (const res of results) {
-        const badge = pickBadge(res);
-        if (!badge) continue;
-        const el = findElementForMediaUrl(res.sourceUrl, res.kind);
-        if (el) addCornerBadge(el, badge.key, badge.url, res);
-      }
+      _lastResults = message.payload?.summary?.results ?? [];
+      applyBadges(_lastResults);
       return false;
     }
 
@@ -429,8 +432,13 @@
     invalid_or_changed:  'This credential could not be validated.',
   };
 
+  // Badge labels — wording from the usability round (Grace's findings):
+  // "AI-Edited" vs "AI-Generated" kept, the trusted non-AI states renamed so
+  // they say what was verified rather than "Authentic". Also the tooltip
+  // headline, so the badge, tooltip, and "More detail" use the same words.
   const CATEGORY_LABEL = {
-    authentic: 'Authentic', edited: 'Edited', ai_edited: 'AI-Edited', ai_generated: 'AI-Generated',
+    authentic: 'Verified', edited: 'Verified · Edited', ai_edited: 'AI-Edited', ai_generated: 'AI-Generated',
+    unverifiable: 'Unverified',
   };
 
   function lowerFirst(s) { return s ? s.charAt(0).toLowerCase() + s.slice(1) : s; }
@@ -440,30 +448,41 @@
     const m = res.manifest || {};
     const signerName = m.signer?.common_name;
     const trustLine = TRUST_STATUS_TEXT[res.status] ?? 'Verification status unknown.';
+    const noun = res.kind === 'video' ? 'video' : 'image';
+    const headline = CATEGORY_LABEL[badgeKey] ?? 'Verified';
 
     if (badgeKey === 'ai_generated') {
-      let body = 'This image discloses it was created using AI.';
+      // This badge bypasses the trust gate (see pickBadge), so only claim the
+      // record is reliable when the signature is fully trusted.
+      let body = `Created by an AI system. The Content Credentials record which AI tool produced this ${noun}.`;
       body += res.status === 'verified_trusted'
         ? (signerName ? ` Signed by ${signerName}.` : '')
         : ` Its signing credential isn't fully verified — ${lowerFirst(trustLine)}`;
-      return { headline: 'Discloses AI generation', body };
+      return { headline, body };
     }
 
     if (badgeKey === 'unverifiable') {
-      const body = signerName ? `Signed by ${signerName}. ${trustLine}` : trustLine;
-      return { headline: "Can't confirm the signer", body };
+      // A trusted signature with no readable content history also lands here;
+      // "the signer could not be verified" would be false for that case.
+      // For the other statuses, add the specific reason (expired, TSA-only)
+      // unless it would just repeat "not on the trust list".
+      let body = res.status === 'verified_trusted'
+        ? `Content Credentials verified, but this ${noun}'s edit history could not be read.`
+        : 'Content Credentials present but the signer could not be verified against the trust list.' +
+          (res.status === 'verified_untrusted' ? '' : ` ${trustLine}`);
+      if (signerName) body += ` Signed by ${signerName}.`;
+      return { headline, body };
     }
 
     // authentic / edited / ai_edited — only reachable when fully trusted.
-    const categoryLine = {
-      authentic: 'shows no edits beyond capture',
-      edited:    'shows it was edited (e.g. cropping, resizing)',
-      ai_edited: 'discloses AI was used to modify it',
-    }[badgeKey] ?? 'has a known content history';
-    const headline = {
-      authentic: 'Fully verified', edited: 'Fully verified — edited', ai_edited: 'Fully verified — AI-edited',
-    }[badgeKey] ?? 'Fully verified';
-    let body = `This image's content credential is fully verified and ${categoryLine}.`;
+    let body = {
+      authentic: 'Content Credentials verified: the signer and the content match the record. ' +
+                 `This confirms provenance, not that the ${noun} is true.`,
+      edited:    `Content Credentials verified. The ${noun} was edited with conventional (non-AI) tools; ` +
+                 'the edits are recorded in its history.',
+      ai_edited: 'A real capture or creation that was later altered with AI tools. ' +
+                 'Not fully AI-generated — see the edit history in More detail.',
+    }[badgeKey] ?? 'Content Credentials verified.';
     if (signerName) body += ` Signed by ${signerName}.`;
     return { headline, body };
   }
@@ -663,15 +682,54 @@
       // collapses inside a shrink-to-fit inline-block — unlike an <img>, it
       // has no large intrinsic width to fall back on — so give it a block
       // wrapper that fills the same container the video did.
-      const isBlockVideo = isVideo && getComputedStyle(imgEl).display === 'block';
+      const mediaStyle = getComputedStyle(imgEl);
+      const isBlockVideo = isVideo && mediaStyle.display === 'block';
+      // Same problem for a block-level <img> sized as a percentage of its
+      // container (e.g. `width:100%; height:220px; object-fit:cover` in a card
+      // grid): inside an inline-block the percentage has nothing to resolve
+      // against, so the image falls back to its own aspect ratio and narrows.
+      // An inline-block also adds a line box, nudging everything below by a few
+      // px. So a block-level image gets a block wrapper: full width when it was
+      // filling its container, otherwise shrink-wrapped to the image (P4 in
+      // docs/phase2/ui-bug-proposals.md).
+      const isBlockImg = !isVideo && mediaStyle.display === 'block';
+      // A floated image would float inside the wrapper, leaving the wrapper
+      // empty-height and the badge stranded above it. Float the wrapper
+      // instead, and move the image's margins onto it so text keeps the same
+      // gap and the badge stays on the image's corner. removeAllBadges() puts
+      // the original inline margin back.
+      const isFloated = mediaStyle.float !== 'none';
+      let blockImgCss = '';
+      if (isFloated) {
+        const m = mediaStyle;
+        blockImgCss =
+          `display:block;float:${m.float};width:fit-content;` +
+          `margin:${m.marginTop} ${m.marginRight} ${m.marginBottom} ${m.marginLeft};`;
+        imgEl.dataset.c2paOrigMargin = imgEl.style.margin;
+        imgEl.style.margin = '0';
+      } else if (isBlockImg) {
+        const parent = imgEl.parentElement;
+        const parentStyle = getComputedStyle(parent);
+        const contentWidth = parent.clientWidth
+          - parseFloat(parentStyle.paddingLeft) - parseFloat(parentStyle.paddingRight);
+        const outerWidth = imgEl.getBoundingClientRect().width
+          + parseFloat(mediaStyle.marginLeft) + parseFloat(mediaStyle.marginRight);
+        blockImgCss = Math.abs(outerWidth - contentWidth) <= 1
+          ? 'display:block;margin:0;'
+          : 'display:block;margin:0;width:fit-content;';
+      }
       wrapper.style.cssText =
         'all:initial;position:relative;line-height:0;' +
         'background:transparent;border:none;box-shadow:none;padding:0;' +
         (isImageDoc
           ? 'display:block;margin:auto;width:fit-content;'
-          : isBlockVideo
-            ? 'display:block;margin:0;'
-            : 'display:inline-block;margin:0;');
+          : isFloated
+            ? blockImgCss
+            : isBlockVideo
+              ? 'display:block;margin:0;'
+              : isBlockImg
+                ? blockImgCss
+              : 'display:inline-block;margin:0;');
       imgEl.parentNode.insertBefore(wrapper, imgEl);
       wrapper.appendChild(imgEl);
     }
@@ -679,11 +737,15 @@
     if (!badge) {
       badge = document.createElement('img');
       badge.dataset.c2paBadgeIcon = '1';
+      // Usability check: the yellow "edited" shield was hard to see on white
+      // images. Two stacked 1px drop-shadows trace the PNG's alpha edge, giving
+      // every badge a thin dark outline that holds on light and dark media.
       badge.style.cssText =
         'all:initial;position:absolute;' +
         `right:${margin}px;${vertical}:${margin}px;` +
         `width:${size}px;height:${size}px;object-fit:contain;` +
         'background:transparent;border:none;box-shadow:none;padding:0;margin:0;' +
+        'filter:drop-shadow(0 0 1px rgba(0,0,0,.85)) drop-shadow(0 0 1px rgba(0,0,0,.85));' +
         'cursor:pointer;pointer-events:auto;z-index:2147483647;';
       wrapper.appendChild(badge);
     }
@@ -735,9 +797,6 @@
     }
   }
 
-  // Initial announcement once the page is idle.
-  announce();
-
   // Watch for dynamically-inserted media (SPAs, lazy-loaded content, infinite scroll).
   // Debounce: wait 1 s after the last mutation, then re-announce.
   let _debounceTimer = null;
@@ -747,10 +806,85 @@
     _debounceTimer = setTimeout(announce, 1_000);
   });
 
-  _observer.observe(document.body, {
-    childList:       true,
-    subtree:         true,
-    attributes:      true,
-    attributeFilter: ['src', 'srcset', 'poster', 'currentSrc'],
+  function startDetection() {
+    _lastAnnounceTs = 0;
+    announce();
+    _observer.observe(document.body, {
+      childList:       true,
+      subtree:         true,
+      attributes:      true,
+      attributeFilter: ['src', 'srcset', 'poster', 'currentSrc'],
+    });
+  }
+
+  function stopDetection() {
+    _observer.disconnect();
+    clearTimeout(_debounceTimer);
+  }
+
+  function applyBadges(results) {
+    for (const res of results) {
+      const badge = pickBadge(res);
+      if (!badge) continue;
+      const el = findElementForMediaUrl(res.sourceUrl, res.kind);
+      if (el) addCornerBadge(el, badge.key, badge.url, res);
+    }
+  }
+
+  /**
+   * Undo every addCornerBadge(): put each media element back where it was,
+   * drop the wrapper (badge + tooltip go with it) and remove the modal.
+   */
+  function removeAllBadges() {
+    for (const wrapper of document.querySelectorAll('span[data-c2pa-badge-wrapper]')) {
+      const media = wrapper.querySelector(':scope > [data-c2pa-badge]');
+      if (media) {
+        delete media.dataset.c2paBadge;
+        if ('c2paOrigMargin' in media.dataset) {
+          media.style.margin = media.dataset.c2paOrigMargin;
+          delete media.dataset.c2paOrigMargin;
+        }
+        wrapper.parentNode.insertBefore(media, wrapper);
+      }
+      wrapper.remove();
+    }
+    if (sharedModal) {
+      sharedModal.backdrop.remove();
+      sharedModal = null;
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // ON/OFF control — the popup switch saves { enabled } under SETTINGS_KEY.
+  // Off: detection pauses and every badge is removed, restoring the page's
+  // layout; the last scan's results are kept in memory. On: detection resumes
+  // and those badges are redrawn — no rescan. A page reload clears them, as it
+  // always has. Defaults to on (settings.js DEFAULT_SETTINGS) when nothing is
+  // saved or the value is malformed.
+  // -------------------------------------------------------------------------
+
+  function applyEnabled(on) {
+    if (on === _enabled) return;
+    const wasOff = _enabled === false;
+    _enabled = on;
+    if (on) {
+      startDetection();
+      if (wasOff) applyBadges(_lastResults);
+    } else {
+      stopDetection();
+      removeAllBadges();
+    }
+  }
+
+  const readEnabled = (raw) => (typeof raw?.enabled === 'boolean' ? raw.enabled : true);
+
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local' || !(SETTINGS_KEY in changes)) return;
+    applyEnabled(readEnabled(changes[SETTINGS_KEY].newValue));
   });
+
+  // Start once the saved setting is known; fall back to on if storage fails.
+  chrome.storage.local.get(SETTINGS_KEY)
+    .then((stored) => applyEnabled(readEnabled(stored[SETTINGS_KEY])))
+    .catch(() => applyEnabled(true));
 })();

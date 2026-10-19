@@ -4,9 +4,11 @@
 // Verification runs via WASM offscreen document — no service health check needed.
 
 import { MSG, msg }              from '../shared/messages.js';
-import { STORAGE_KEYS, TEST_BENCH_URLS } from '../shared/constants.js';
+import { STORAGE_KEYS, TEST_BENCH_URLS, VERIFY_STATUS } from '../shared/constants.js';
 import { statusToLabel }         from '../shared/status-label.js';
 import { renderThumb }           from '../shared/render-thumb.js';
+import { createSettings }        from '../shared/settings.js';
+import { createChromeSettingsStore } from '../shared/chrome-settings-store.js';
 
 // ---------------------------------------------------------------------------
 // DOM refs
@@ -37,6 +39,11 @@ const liveEmpty = $('live-empty');
 const btnTestBench   = $('btn-test-bench');
 const testBenchMenu  = $('test-bench-menu');
 
+// ON/OFF control
+const toggleEnabled = $('toggle-enabled');
+const powerState    = $('power-state');
+const offNote       = $('off-note');
+
 
 // ---------------------------------------------------------------------------
 // State
@@ -50,6 +57,36 @@ let _activePanel  = 'scan';
 const LIVE_MAX_DISPLAY = 50;
 /** sourceUrl/src -> item, populated on each render so the inspect modal can look up full detail. */
 const _lastResultsByUrl = new Map();
+/** ON/OFF setting (shared/settings.js); null until init() has read it. */
+const settings = createSettings(createChromeSettingsStore());
+let _enabled  = null;
+let _scanning = false;
+
+// ---------------------------------------------------------------------------
+// ON/OFF control — the content script and service worker read the same
+// saved setting, so flipping it here is all that is needed.
+// ---------------------------------------------------------------------------
+
+function applyEnabledUi(on) {
+  _enabled = on;
+  toggleEnabled.checked  = on;
+  powerState.textContent = on ? 'On' : 'Off';
+  offNote.classList.toggle('hidden', on);
+  // Off hides the last scan's cards (and their Shield logos) — see popup.css.
+  document.body.classList.toggle('is-off', !on);
+  if (!_scanning) btnScan.disabled = !on;
+}
+
+toggleEnabled.addEventListener('change', async () => {
+  const on = toggleEnabled.checked;
+  applyEnabledUi(on);
+  try {
+    await settings.setEnabled(on);
+  } catch (err) {
+    console.error('[C2PA popup] could not save the ON/OFF setting:', err);
+    applyEnabledUi(!on);
+  }
+});
 
 // ---------------------------------------------------------------------------
 // Tab bar
@@ -79,6 +116,7 @@ function switchPanel(name) {
 // ---------------------------------------------------------------------------
 
 btnScan.addEventListener('click', async () => {
+  _scanning             = true;
   btnScan.disabled      = true;
   btnScan.textContent   = 'Scanning…';
   resultsList.innerHTML = '';
@@ -96,7 +134,8 @@ btnScan.addEventListener('click', async () => {
     emptyState.innerHTML = `<p style="color:var(--danger)">${escapeHtml(err.message)}</p>`;
   } finally {
     progressWrap?.classList.add('hidden');
-    btnScan.disabled    = false;
+    _scanning           = false;
+    btnScan.disabled    = _enabled === false;
     btnScan.textContent = 'Scan this page';
   }
 });
@@ -351,6 +390,16 @@ function renderItem(item) {
 
   body.appendChild(tags);
 
+  // Usability round: absence of credentials was read as "fake". Say plainly
+  // that it isn't (CLAUDE.md constraint #4).
+  if (item.status === VERIFY_STATUS.NO_CREDENTIALS) {
+    const note = document.createElement('div');
+    note.className   = 'result-meta';
+    note.textContent = 'No Content Credentials found. This does not mean the ' +
+      `${item.kind === 'video' ? 'video' : 'image'} is fake — most media has no credentials yet.`;
+    body.appendChild(note);
+  }
+
   if (item.manifest) {
   const parts = [];
 
@@ -366,16 +415,18 @@ function renderItem(item) {
     parts.push(`signer: ${item.manifest.signer.common_name}`);
   }
 
-  const validity = item.manifest.validity;
+  // Fields as offscreen.js extractManifest() emits them (P1 in
+  // docs/phase2/ui-bug-proposals.md: this used to read a `validity` key that
+  // was never produced). "Signer not in trust list" is already the status
+  // label, so it is not repeated here.
+  const { validity_window: validityWindow, tsa_info: tsaInfo } = item.manifest;
 
-  if (validity?.certificate_status === 'expired') {
+  if (validityWindow?.expired) {
     parts.push('certificate: expired');
-  } else if (validity?.certificate_status === 'untrusted') {
-    parts.push('certificate: untrusted');
   }
 
-  if (validity?.timestamp_status === 'untrusted') {
-    parts.push('timestamp: untrusted');
+  if (tsaInfo?.time && !tsaInfo.validated) {
+    parts.push('timestamp: not validated');
   }
 
   if (parts.length > 0) {
@@ -516,6 +567,8 @@ loadTestBenchDefault();
     }
   } catch { /* non-fatal */ }
 
-  // 4. WASM verifier is always ready — enable scan.
-  btnScan.disabled = false;
+  // 4. WASM verifier is always ready — enable scan unless checking is off.
+  let on = true;
+  try { on = await settings.isEnabled(); } catch { /* default: on */ }
+  applyEnabledUi(on);
 })();

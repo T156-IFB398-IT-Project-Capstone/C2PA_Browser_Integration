@@ -15,9 +15,19 @@
         <div class="brand-sub">QUT × Databench</div>
       </div>
     </div>
-    <a id="btn-test-bench" class="icon-btn" href="http://127.0.0.1:8976" target="_blank"
-       rel="noopener" title="Open the C2PA test bench (right-click for options)"
-       aria-label="Open the C2PA test bench (right-click for options)">⧉</a>
+    <div class="header-actions">
+      <!-- ON/OFF control. Saved via shared/settings.js; becomes a browser
+           settings toggle when this is converted into a built-in feature. -->
+      <label class="power-switch" title="Turn Content Credentials checking on or off">
+        <span class="power-label">Content Credentials</span>
+        <input id="toggle-enabled" class="power-input" type="checkbox" role="switch" checked />
+        <span class="power-track" aria-hidden="true"></span>
+        <span id="power-state" class="power-state" aria-hidden="true">On</span>
+      </label>
+      <a id="btn-test-bench" class="icon-btn" href="http://127.0.0.1:8976" target="_blank"
+         rel="noopener" title="Open the C2PA test bench (right-click for options)"
+         aria-label="Open the C2PA test bench (right-click for options)">⧉</a>
+    </div>
   </header>
 
   <!-- Custom context menu — right-click #btn-test-bench. Default click above
@@ -60,6 +70,10 @@
     <!-- ── Scan panel (default visible) ─────────────────────────────────── -->
     <div id="panel-scan" role="tabpanel" aria-labelledby="tab-scan">
       <button id="btn-scan" class="primary-btn" disabled>Scan this page</button>
+
+      <p id="off-note" class="off-note hidden">
+        Content Credentials checking is off. Switch it on above to scan this page.
+      </p>
 
       <!-- Progress bar (visible during scan) -->
       <div id="scan-progress" class="progress-wrap hidden" aria-live="polite" aria-label="Scan progress">
