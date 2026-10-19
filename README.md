@@ -1,6 +1,6 @@
 # C2PA Content Credentials Browser Extension (QUT × Databench)
 
-> IFB398 IT Capstone — Semester 1, 2026
+> QUT IT Capstone (IFB398 Phase 1, IFB399 Phase 2), Team T156, 2026 — v1.0.0 handover release
 
 A Chromium browser extension that detects images and video (MP4) on web pages, reads embedded C2PA Content Credentials manifests, and cryptographically verifies them using WebAssembly. Built for Databench Pty Ltd targeting MaxBrowser (Chromium/Brave-based). All verification runs locally — no external service, no server, no setup beyond loading the extension.
 
