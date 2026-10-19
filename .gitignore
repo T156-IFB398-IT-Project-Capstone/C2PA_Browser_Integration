@@ -49,6 +49,9 @@ test-assets/private/
 *.secret
 *.key
 *.pem
+# Exception: the published C2PA trust lists (public certificates only) that the
+# extension bundles as trust anchors. See trust-lists/c2pa-conformance/README.md.
+!trust-lists/c2pa-conformance/*.pem
 .env.local
 .env.*.local
 

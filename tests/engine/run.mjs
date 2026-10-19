@@ -32,9 +32,15 @@
 //                              fallback to SDK defaults).
 //   trust-anchors              if trust.trustAnchors / userAnchors are set: each
 //                              must be ONE PEM string (the SDK fetches URLs and
-//                              every item of an array), and at least one asset
-//                              must report signingCredential.trusted — i.e. the
-//                              anchors are really active. N/A when not set.
+//                              every item of an array), and the anchors must be
+//                              shown to be active: either an asset reports
+//                              signingCredential.trusted, or the TEST-ONLY
+//                              control does — production anchors + one CA
+//                              certificate from the control asset's own
+//                              embedded chain appended at the END, verified on
+//                              a separate engine instance. A pass proves the
+//                              engine applies trust.trustAnchors and parsed the
+//                              whole production PEM string. N/A when not set.
 //   remote-manifests-local     if verify.remoteManifestFetch === false: no
 //                              outbound request during init or any verify phase.
 //                              N/A when not set.
@@ -46,7 +52,7 @@
 
 import { spawn, spawnSync } from 'node:child_process';
 import { createServer } from 'node:http';
-import { createHash } from 'node:crypto';
+import { createHash, X509Certificate } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -65,6 +71,9 @@ const ASSETS = [
   { name: 'cloudscape.jpeg', mimeType: 'image/jpeg' },
   { name: 'sora.MP4',        mimeType: 'video/mp4'  },
 ];
+
+// Asset whose own embedded certificate chain supplies the trust-anchor control.
+const CONTROL_ASSET = 'car.jpg';
 
 const PHASE_SETTLE_MS = 750;      // let late network events for a phase arrive
 const STEP_TIMEOUT_MS = 120_000;
@@ -151,6 +160,30 @@ function summarizeSettings(s) {
     },
     verify: s?.verify ?? '(SDK defaults)',
   };
+}
+
+// X.509 certificates embedded in an asset (the manifest's signing chain and
+// timestamp chain), found by scanning for DER SEQUENCE headers and keeping
+// whatever parses. Used only to build the test-only trust-anchor control.
+function embeddedCertificates(bytes) {
+  const found = new Map();
+  for (let i = 0; i + 8 < bytes.length; i++) {
+    if (bytes[i] !== 0x30 || bytes[i + 1] !== 0x82 || bytes[i + 4] !== 0x30 || bytes[i + 5] !== 0x82) continue;
+    const len = ((bytes[i + 2] << 8) | bytes[i + 3]) + 4;
+    if (i + len > bytes.length) continue;
+    try {
+      const cert = new X509Certificate(bytes.subarray(i, i + len));
+      if (!found.has(cert.fingerprint256)) found.set(cert.fingerprint256, cert);
+    } catch { /* not a certificate */ }
+  }
+  return [...found.values()];
+}
+
+/** CA certificate that issued the signer's certificate, from the asset's own chain. */
+function signerIssuer(bytes, signerCommonName) {
+  const certs = embeddedCertificates(bytes);
+  const leaf = certs.find((c) => !c.ca && c.subject.split('\n').includes(`CN=${signerCommonName}`));
+  return leaf ? certs.find((c) => c.ca && c.subject === leaf.issuer) ?? null : null;
 }
 
 function validationCodes(raw) {
@@ -386,6 +419,30 @@ async function main() {
       const result = await runPhase(`verify:${asset.name}`, `window.__engineCheck.verify(${JSON.stringify(asset.name)})`);
       assets.push({ ...asset, size: bytes.length, sha256: sha256(bytes), ...result });
     }
+
+    // TEST-ONLY trust-anchor control (see the header comment). Only when the
+    // production settings configure anchors.
+    let control = null;
+    const anchorsConfigured = Boolean(settings?.trust?.trustAnchors || settings?.trust?.userAnchors);
+    if (anchorsConfigured) {
+      const asset = assets.find((a) => a.name === CONTROL_ASSET);
+      const signer = asset?.manifest?.signer?.common_name;
+      const issuer = signer ? signerIssuer(fs.readFileSync(path.join(ASSET_DIR, CONTROL_ASSET)), signer) : null;
+      if (!issuer) {
+        control = { asset: CONTROL_ASSET, error: `no CA certificate for signer "${signer}" found in the asset's embedded chain` };
+      } else {
+        const result = await runPhase(`control:${CONTROL_ASSET}`,
+          `window.__engineCheck.controlVerify(${JSON.stringify(CONTROL_ASSET)}, ${JSON.stringify(issuer.toString())})`);
+        control = {
+          asset: CONTROL_ASSET,
+          appendedCertificate: { subject: issuer.subject.replace(/\n/g, ', '), sha256Fingerprint: issuer.fingerprint256 },
+          finalState: result.status,
+          validationState: result.raw?.validation_state ?? null,
+          codes: validationCodes(result.raw),
+          raw: result.raw,
+        };
+      }
+    }
     phase = 'done';
 
     // ── Checks ────────────────────────────────────────────────────────────
@@ -406,7 +463,7 @@ async function main() {
       init.settingsApplied ? 'PASS' : 'FAIL',
       init.settingsApplied
         ? 'createC2pa() accepted ENGINE_SETTINGS'
-        : `createC2pa() rejected ENGINE_SETTINGS and fell back to SDK defaults: ${init.fallbackError}`);
+        : `createC2pa() rejected ENGINE_SETTINGS: ${init.error ?? init.fallbackError}`);
 
     const anchorEntries = Object.entries({
       'trust.trustAnchors': settingsSummary.trust.trustAnchors,
@@ -417,12 +474,17 @@ async function main() {
     } else {
       const badForm = anchorEntries.filter(([, v]) => v.form !== 'pem-string' || v.certificates === 0);
       const trustedAssets = assets.filter((a) => validationCodes(a.raw).success.includes('signingCredential.trusted'));
+      const controlTrusted = Boolean(control?.codes?.success.includes('signingCredential.trusted'));
+      const configured = anchorEntries.map(([k, v]) => `${k}: one PEM string, ${v.certificates} certificates`).join('; ');
+      const controlText = control?.error
+        ? `control not run: ${control.error}`
+        : `control (test-only: production anchors + "${control?.appendedCertificate?.subject}" from ${control?.asset}'s own chain, appended last) → ${control?.asset} ${controlTrusted ? 'reported signingCredential.trusted' : `did NOT report signingCredential.trusted (${control?.validationState})`}`;
       if (badForm.length) {
         check('trust-anchors', 'FAIL', `must be ONE PEM string (the SDK fetches URLs and array items): ${badForm.map(([k, v]) => `${k} is ${v.form}`).join('; ')}`);
-      } else if (trustedAssets.length === 0) {
-        check('trust-anchors', 'FAIL', `anchors are configured (${anchorEntries.map(([k, v]) => `${k}: ${v.certificates} certificates`).join('; ')}) but NO asset reported signingCredential.trusted — the anchors are not active`);
+      } else if (trustedAssets.length === 0 && !controlTrusted) {
+        check('trust-anchors', 'FAIL', `anchors are configured (${configured}) but neither any asset nor the control reported signingCredential.trusted — the anchors are NOT shown to be active; ${controlText}`);
       } else {
-        check('trust-anchors', 'PASS', `${anchorEntries.map(([k, v]) => `${k}: one PEM string, ${v.certificates} certificates`).join('; ')}; signingCredential.trusted on: ${trustedAssets.map((a) => a.name).join(', ')}`);
+        check('trust-anchors', 'PASS', `${configured}; production run: ${trustedAssets.length ? `signingCredential.trusted on ${trustedAssets.map((a) => a.name).join(', ')}` : 'no sample is signed under a listed CA (all signingCredential.untrusted)'}; ${controlText}`);
       }
     }
 
@@ -474,6 +536,7 @@ async function main() {
         requestsDuringVerification: verifyRequests(a.name),
         raw: a.raw,
       })),
+      trustAnchorControl: control,
       otherRequests: allRequests.filter((r) => !r.phase.startsWith('verify:')),
       consoleWarningsAndErrors: consoleMessages,
       attachErrors,
@@ -564,6 +627,20 @@ function renderMarkdown(r) {
     lines.push(`- Requests during verification: ${reqs.length ? '' : 'none'}`);
     for (const x of reqs) lines.push(`  - [${x.kind}, ${x.target}] ${x.method} ${x.url} → ${x.outcome}`);
     lines.push('');
+  }
+  if (r.trustAnchorControl) {
+    const c = r.trustAnchorControl;
+    lines.push('## Trust-anchor control (test-only, not shipped)', '');
+    if (c.error) {
+      lines.push(`Not run: ${c.error}`, '');
+    } else {
+      lines.push(`A separate engine instance verified \`${c.asset}\` with the production anchors plus ONE CA`,
+        `certificate appended at the end, taken from the asset's own embedded chain:`,
+        `${c.appendedCertificate.subject} (SHA-256 fingerprint ${c.appendedCertificate.sha256Fingerprint}).`, '');
+      lines.push(`- Final state: \`${c.finalState}\`, SDK validation_state: ${c.validationState ?? '—'}`);
+      lines.push(`- success: ${codeList(c.codes.success)}`);
+      lines.push(`- failure: ${codeList(c.codes.failure)}`, '');
+    }
   }
   lines.push('## Other recorded requests (outside verification phases)', '');
   if (r.otherRequests.length === 0) lines.push('None.');

@@ -10,6 +10,7 @@ asset and every recorded network request.
 | Run | Engine settings | Folder |
 |---|---|---|
 | Before the QA fixes (19 Oct 2026, commit `3ab97f5`) | `cawgTrust.verifyTrustList: true` only (as shipped since PR #11) | [`before/`](before/README.md) |
+| After trust anchors (19 Oct 2026, commit `95f47e5`) | + `trust.trustAnchors`: official C2PA Trust List + TSA Trust List, one PEM string (55 certificates) | [`after-trust-anchors/`](after-trust-anchors/README.md) |
 
 ## What the "before" run shows
 
@@ -43,3 +44,19 @@ Evidence: [`before/README.md`](before/README.md), all four harness checks PASS o
    from authorities the engine does not trust (`timeStamp.untrusted`), so their
    expired certificates are not rescued (finding-001).
 5. `car.jpg` reads `verified_tsa`, matching the 7 Oct performance run.
+
+## What the "after trust anchors" run shows
+
+Evidence: [`after-trust-anchors/README.md`](after-trust-anchors/README.md); decision:
+[`../decisions/2026-10-19-trust-anchors.md`](../decisions/2026-10-19-trust-anchors.md).
+
+- The engine accepted the settings (`engine-settings-applied` PASS). The anchors are
+  shown to be active by the test-only control (`trust-anchors` PASS). The control
+  appended one CA certificate from `car.jpg`'s own chain after all 55 official
+  certificates. `car.jpg` then reported `signingCredential.trusted` and read
+  `verified_trusted`.
+- With the production list alone, **no sample changes state**. None of their signing
+  or timestamp chains is on the official C2PA lists, so every sample still
+  reports `signingCredential.untrusted`. This is the real outcome; nothing was tuned.
+- The outbound requests are unchanged (`crater-lake.jpg`, `cloudscape.jpeg`). They
+  are addressed by the remote-manifest fix.
