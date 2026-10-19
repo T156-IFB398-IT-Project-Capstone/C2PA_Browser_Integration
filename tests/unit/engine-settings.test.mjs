@@ -18,7 +18,7 @@ register('./helpers/fake-sdk-hooks.mjs', import.meta.url);
 installChromeStub();
 
 const fakeSdk = await import('./helpers/fake-c2pa-web.mjs');
-const { ENGINE_SETTINGS, TRUST_ANCHORS_PEM, engineInitStatus } =
+const { ENGINE_SETTINGS, TRUST_ANCHORS_PEM, engineInitStatus, remoteManifestUrl } =
   await import(repoUrl('extension/src/offscreen/offscreen.js'));
 const { MSG } = await import(repoUrl('extension/src/shared/messages.js'));
 
@@ -59,6 +59,24 @@ describe('ENGINE_SETTINGS', () => {
   test('no other trust or CAWG setting points at a URL', () => {
     const urls = JSON.stringify(ENGINE_SETTINGS).match(/https?:\/\//g);
     assert.equal(urls, null);
+  });
+
+  test('remote manifests are not fetched (verify.remoteManifestFetch = false)', () => {
+    assert.equal(ENGINE_SETTINGS.verify?.remoteManifestFetch, false);
+  });
+
+  test('CAWG identity assertions are not decoded (their DID lookup goes online)', () => {
+    assert.equal(ENGINE_SETTINGS.core?.decodeIdentityAssertions, false);
+  });
+});
+
+describe('remoteManifestUrl()', () => {
+  test('extracts the URL from the engine error', () => {
+    assert.equal(remoteManifestUrl(new Error('C2pa(RemoteManifestUrl("https://example.test/m/1"))')), 'https://example.test/m/1');
+  });
+  test('returns null for any other error', () => {
+    assert.equal(remoteManifestUrl(new Error('UnsupportedType: image/x-foo')), null);
+    assert.equal(remoteManifestUrl(undefined), null);
   });
 });
 

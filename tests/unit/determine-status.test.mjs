@@ -126,9 +126,11 @@ describe('determineStatus — synthetic stores (one branch each)', () => {
 });
 
 describe('determineStatus — coverage of VERIFY_STATUS', () => {
-  test('every status except unsupported_format is reachable from determineStatus', () => {
+  test('every status except unsupported_format and remote_not_checked is reachable from determineStatus', () => {
     // unsupported_format is assigned by the service worker (verifyOne) when the
-    // fetched MIME type is unsupported; determineStatus never returns it.
+    // fetched MIME type is unsupported; remote_not_checked by verifyDetailed()
+    // when the engine refuses to fetch a remote manifest (no manifest store
+    // exists to classify). determineStatus never returns either.
     const stores = [
       null,
       syntheticStore('Trusted'),
@@ -140,7 +142,7 @@ describe('determineStatus — coverage of VERIFY_STATUS', () => {
       syntheticStore('Invalid'),
     ];
     const reached = new Set(stores.map(determineStatus));
-    const expected = Object.values(S).filter((s) => s !== S.UNSUPPORTED_FORMAT);
+    const expected = Object.values(S).filter((s) => s !== S.UNSUPPORTED_FORMAT && s !== S.REMOTE_NOT_CHECKED);
     assert.deepEqual([...reached].sort(), expected.sort());
   });
 });

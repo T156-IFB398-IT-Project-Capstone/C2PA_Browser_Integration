@@ -15,6 +15,7 @@ const LABELS = {
   [S.INVALID_OR_CHANGED]: 'Invalid or changed',
   [S.NO_CREDENTIALS]:     'No Content Credentials',
   [S.UNSUPPORTED_FORMAT]: 'Format not supported',
+  [S.REMOTE_NOT_CHECKED]: 'Credentials stored online — not checked',
   error:                  'Error',
 };
 

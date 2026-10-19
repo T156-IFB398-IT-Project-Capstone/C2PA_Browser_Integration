@@ -54,6 +54,8 @@
   //    trusted with no readable action history) falls back to a single
   //    neutral "unverifiable" badge — detail lives in the popup, not
   //    guessed at here.
+  //  - remote_not_checked (credentials stored online, deliberately not
+  //    fetched) uses the same neutral icon with its own "not checked" label.
   //  - no_credentials / unsupported_format / error get no badge at all.
   //
   // Filenames match the values above; swap files in place to restyle,
@@ -99,6 +101,11 @@
     }
     if (UNVERIFIABLE_STATUSES.has(res.status)) {
       return { key: 'unverifiable', url: UNVERIFIABLE_LOGO_URL };
+    }
+    // Credentials stored online, deliberately not fetched: same neutral icon,
+    // its own label and wording (it was not checked, not "unverified").
+    if (res.status === 'remote_not_checked') {
+      return { key: 'remote_not_checked', url: UNVERIFIABLE_LOGO_URL };
     }
     return null; // no_credentials, unsupported_format, error
   }
@@ -430,6 +437,7 @@
     content_tampered:    "This image's content doesn't match what its credential describes.",
     broken_signature:    "This credential's signature could not be validated.",
     invalid_or_changed:  'This credential could not be validated.',
+    remote_not_checked:  'The Content Credentials are stored online and were not checked, to keep your browsing private.',
   };
 
   // Badge labels — wording from the usability round (Grace's findings):
@@ -439,6 +447,7 @@
   const CATEGORY_LABEL = {
     authentic: 'Verified', edited: 'Verified · Edited', ai_edited: 'AI-Edited', ai_generated: 'AI-Generated',
     unverifiable: 'Unverified',
+    remote_not_checked: 'Credentials online — not checked',
   };
 
   function lowerFirst(s) { return s ? s.charAt(0).toLowerCase() + s.slice(1) : s; }
@@ -459,6 +468,14 @@
         ? (signerName ? ` Signed by ${signerName}.` : '')
         : ` Its signing credential isn't fully verified — ${lowerFirst(trustLine)}`;
       return { headline, body };
+    }
+
+    if (badgeKey === 'remote_not_checked') {
+      return {
+        headline,
+        body: `This ${noun} points to Content Credentials stored online. ` +
+              'They were not checked, to keep your browsing private.',
+      };
     }
 
     if (badgeKey === 'unverifiable') {

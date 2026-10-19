@@ -16,6 +16,7 @@ export function statusToLabel(status) {
     case VERIFY_STATUS.INVALID_OR_CHANGED:  return 'Invalid or changed';
     case VERIFY_STATUS.NO_CREDENTIALS:      return 'No Content Credentials';
     case VERIFY_STATUS.UNSUPPORTED_FORMAT:  return 'Format not supported';
+    case VERIFY_STATUS.REMOTE_NOT_CHECKED:  return 'Credentials stored online — not checked';
     case 'error':                           return 'Error';
     default:                                return status ?? 'Unknown';
   }

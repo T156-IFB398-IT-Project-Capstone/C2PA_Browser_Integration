@@ -32,14 +32,39 @@ export const TRUST_ANCHORS_PEM = `${C2PA_TRUST_LIST.trim()}\n${C2PA_TSA_TRUST_LI
 // (tests/engine/) can report and assert what the engine was configured with.
 // cawgTrust applies to CAWG identity assertions only; trust.trustAnchors is
 // what lets a C2PA signer be trusted (final QA 12 Oct, risk R20).
+//
+// No network access during verification (CLAUDE.md constraint 3; decision
+// docs/phase2/decisions/2026-10-19-no-network-verification.md):
+//  - verify.remoteManifestFetch: false — an asset that only links to a
+//    manifest stored online is not fetched; the engine reports the link and
+//    verify() returns VERIFY_STATUS.REMOTE_NOT_CHECKED (risk R21).
+//    Not declared in c2pa-web 0.13.1's TypeScript types, but the SDK passes
+//    settings to c2pa-rs as verify.remote_manifest_fetch; the engine-level
+//    check proves it is honoured.
+//  - core.decodeIdentityAssertions: false — validating a CAWG identity
+//    assertion fetched a DID document from the identity provider
+//    (engine-check "before" run, cloudscape.jpeg). The extension never used
+//    CAWG identity results, so no state or badge changes.
 export const ENGINE_SETTINGS = Object.freeze({
   trust: {
     trustAnchors: TRUST_ANCHORS_PEM,
   },
   cawgTrust: {
     verifyTrustList: true
-  }
+  },
+  verify: {
+    remoteManifestFetch: false,
+  },
+  core: {
+    decodeIdentityAssertions: false,
+  },
 });
+
+/** The manifest URL from c2pa-web's "remote manifest not fetched" error, or null. */
+export function remoteManifestUrl(err) {
+  const match = /RemoteManifestUrl\("([^"]*)"\)/.exec(err?.message ?? String(err ?? ''));
+  return match ? match[1] : null;
+}
 
 function getSdk() {
   if (!_sdkPromise) {
@@ -129,7 +154,25 @@ export async function verifyDetailed({ bytes, mimeType }) {
   const heapBefore = heapSnapshot();
   const wasmStart   = performance.now();
 
-  const reader = await c2pa.reader.fromBlob(mimeType, blob);
+  let reader;
+  try {
+    reader = await c2pa.reader.fromBlob(mimeType, blob);
+  } catch (err) {
+    const url = remoteManifestUrl(err);
+    if (url === null) throw err;
+    // Credentials are stored online and were deliberately not fetched
+    // (verify.remoteManifestFetch: false). Nothing was checked.
+    const wasmVerifyMs = +(performance.now() - wasmStart).toFixed(2);
+    return {
+      status: VERIFY_STATUS.REMOTE_NOT_CHECKED, manifest: null, error: null,
+      perf: { wasmVerifyMs, heapBefore, heapAfter: heapSnapshot() },
+      raw: {
+        active_manifest: null, validation_state: null,
+        validation_status: null, validation_results: null,
+        remote_manifest_url: url,
+      },
+    };
+  }
 
   if (!reader) {
     const wasmVerifyMs = +(performance.now() - wasmStart).toFixed(2);
@@ -154,6 +197,7 @@ export async function verifyDetailed({ bytes, mimeType }) {
       validation_state:   store?.validation_state ?? null,
       validation_status:  store?.validation_status ?? null,
       validation_results: store?.validation_results ?? null,
+      remote_manifest_url: null,
     },
   };
 }

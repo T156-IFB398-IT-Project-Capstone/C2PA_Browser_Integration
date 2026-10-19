@@ -490,11 +490,20 @@ async function main() {
 
     if (settings?.verify?.remoteManifestFetch === false) {
       const leaks = allRequests.filter((r) => r.kind === 'outbound' && (r.phase === 'engine-init' || r.phase.startsWith('verify:')));
-      check('remote-manifests-local',
-        leaks.length === 0 ? 'PASS' : 'FAIL',
-        leaks.length === 0
-          ? 'verify.remoteManifestFetch=false and no outbound request during engine init or any verification'
-          : `verify.remoteManifestFetch=false but outbound requests were made: ${leaks.map((r) => `${r.phase} ${r.url}`).join('; ')}`);
+      // Proof the key is honoured: the engine reported a remote manifest URL
+      // it refused to fetch, and the extension mapped that to remote_not_checked.
+      const refused = assets.filter((a) => a.raw?.remote_manifest_url);
+      const misMapped = refused.filter((a) => a.status !== 'remote_not_checked');
+      const refusedText = refused.map((a) => `${a.name} → ${a.status} (not fetched: ${a.raw.remote_manifest_url})`).join('; ');
+      if (leaks.length) {
+        check('remote-manifests-local', 'FAIL', `verify.remoteManifestFetch=false but outbound requests were made: ${leaks.map((r) => `${r.phase} ${r.url}`).join('; ')}`);
+      } else if (refused.length === 0) {
+        check('remote-manifests-local', 'FAIL', 'no outbound request, but no asset reported a remote manifest it refused to fetch — the setting is not shown to be honoured');
+      } else if (misMapped.length) {
+        check('remote-manifests-local', 'FAIL', `remote manifest refused but not mapped to remote_not_checked: ${refusedText}`);
+      } else {
+        check('remote-manifests-local', 'PASS', `no outbound request during engine init or any verification; engine refused to fetch: ${refusedText}`);
+      }
     } else {
       check('remote-manifests-local', 'N/A', 'verify.remoteManifestFetch is not set to false (SDK default applies)');
     }
