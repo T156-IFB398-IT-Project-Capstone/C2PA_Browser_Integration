@@ -35,6 +35,9 @@ c2pa-test-bench/verify-bundle.js.map
 # decide whether a rebuild is needed. Regenerated with the bundle.
 c2pa-test-bench/verify-bundle.meta.json
 
+# Engine-level check — bundle and throwaway Chrome profiles (tests/engine/run.mjs)
+tests/engine/.tmp/
+
 # ============================================================
 # Test assets with real user data
 # ============================================================

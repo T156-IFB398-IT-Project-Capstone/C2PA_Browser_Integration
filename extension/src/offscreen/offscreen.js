@@ -16,24 +16,36 @@ import { VERIFY_STATUS }             from '../shared/constants.js';
 // Defer initialisation to the first verification request so the offscreen
 // document starts up fast. Reuse the same instance for all subsequent calls.
 let _sdkPromise = null;
+let _initFallbackError = null;
+
+// Settings passed to createC2pa(). Exported so the engine-level check
+// (tests/engine/) can report and assert what the engine was configured with.
+// Note: cawgTrust applies to CAWG identity assertions only; it does not
+// configure trust for C2PA signers (final QA 12 Oct, risk R20).
+export const ENGINE_SETTINGS = Object.freeze({
+  cawgTrust: {
+    verifyTrustList: true
+  }
+});
 
 function getSdk() {
   if (!_sdkPromise) {
-    // Initialize without hardcoded PEMs. This relies on the SDK's built-in
-    // cawgTrust setting, which validates against the official CAWG trust list 
-    // dynamically and automatically.
-    _sdkPromise = createC2pa({
-      settings: {
-        cawgTrust: {
-          verifyTrustList: true
-        }
-      }
-    }).catch(err => {
+    _sdkPromise = createC2pa({ settings: ENGINE_SETTINGS }).catch(err => {
       console.warn('[c2pa-offscreen] Failed init with trust settings, falling back to default:', err);
+      _initFallbackError = err?.message ?? String(err);
       return createC2pa();
     });
   }
   return _sdkPromise;
+}
+
+/**
+ * Engine-level check support: initialise the SDK and report whether it is
+ * running with ENGINE_SETTINGS or fell back to SDK defaults.
+ */
+export async function engineInitStatus() {
+  await getSdk();
+  return { settingsApplied: _initFallbackError === null, fallbackError: _initFallbackError };
 }
 
 // ── Message listener ──────────────────────────────────────────────────────────
@@ -69,7 +81,18 @@ function heapSnapshot() {
     : null;
 }
 
-export async function verify({ bytes, mimeType }) {
+export async function verify(payload) {
+  const { raw, ...result } = await verifyDetailed(payload);
+  return result;
+}
+
+/**
+ * verify() plus `raw`: the SDK's own validation fields for the asset
+ * (validation_state, validation_status, validation_results). Used by the
+ * engine-level check; the extension's message contract is unchanged because
+ * verify() drops `raw`.
+ */
+export async function verifyDetailed({ bytes, mimeType }) {
   const c2pa = await getSdk();
 
   // service-worker.js sends bytes as a plain number array (chrome.runtime
@@ -92,6 +115,7 @@ export async function verify({ bytes, mimeType }) {
     return {
       status: VERIFY_STATUS.NO_CREDENTIALS, manifest: null, error: null,
       perf: { wasmVerifyMs, heapBefore, heapAfter: heapSnapshot() },
+      raw: null,
     };
   }
 
@@ -104,6 +128,12 @@ export async function verify({ bytes, mimeType }) {
     manifest: extractManifest(store),
     error:    null,
     perf:     { wasmVerifyMs, heapBefore, heapAfter },
+    raw: {
+      active_manifest:    store?.active_manifest ?? null,
+      validation_state:   store?.validation_state ?? null,
+      validation_status:  store?.validation_status ?? null,
+      validation_results: store?.validation_results ?? null,
+    },
   };
 }
 

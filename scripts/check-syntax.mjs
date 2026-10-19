@@ -25,14 +25,14 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-const SCAN_DIRS = ['extension/src', 'scripts', 'c2pa-test-bench'];
+const SCAN_DIRS = ['extension/src', 'scripts', 'c2pa-test-bench', 'tests/engine'];
 
 // Generated bundles: large, machine-written, and not ours to lint.
 const EXCLUDE = new Set([
   'c2pa-test-bench/verify-bundle.js',
   'extension/spike-harness/raw.bundle.js',
 ]);
-const EXCLUDE_DIRS = new Set(['node_modules', 'extension/dist']);
+const EXCLUDE_DIRS = new Set(['node_modules', 'extension/dist', 'tests/engine/.tmp']);
 
 // Loaded by Chrome as classic (non-module) scripts.
 const CLASSIC = new Set([

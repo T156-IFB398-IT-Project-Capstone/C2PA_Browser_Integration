@@ -13,7 +13,7 @@ register('./helpers/fake-sdk-hooks.mjs', import.meta.url);
 installChromeStub(); // offscreen.js registers its onMessage listener only if `chrome` exists
 
 const fakeSdk = await import('./helpers/fake-c2pa-web.mjs');
-const { verify } = await import(repoUrl('extension/src/offscreen/offscreen.js'));
+const { verify, verifyDetailed } = await import(repoUrl('extension/src/offscreen/offscreen.js'));
 const { pickBadgeState } = await import(repoUrl('extension/src/shared/badge-map.js'));
 const { VERIFY_STATUS: S } = await import(repoUrl('extension/src/shared/constants.js'));
 const { MSG } = await import(repoUrl('extension/src/shared/messages.js'));
@@ -56,6 +56,21 @@ describe('verify() with a stand-in SDK', () => {
     // No `validity` key (extractValidity() is dead code). popup.js now reads
     // validity_window / tsa_info instead. See docs/phase2/ui-bug-proposals.md P1.
     assert.equal('validity' in manifest, false);
+  });
+
+  test('verify() result keeps the message contract (no raw SDK fields)', async () => {
+    const res = await verifyStore(loadManifest('car'));
+    assert.deepEqual(Object.keys(res).sort(), ['error', 'manifest', 'perf', 'status']);
+  });
+
+  test('verifyDetailed() adds the raw SDK validation fields for the engine-level check', async () => {
+    const store = loadManifest('car');
+    fakeSdk.setStore(store);
+    const res = await verifyDetailed({ bytes: [0xff, 0xd8], mimeType: 'image/jpeg' });
+    assert.equal(res.status, (await verifyStore(store)).status);
+    assert.deepEqual(Object.keys(res.raw).sort(),
+      ['active_manifest', 'validation_results', 'validation_state', 'validation_status']);
+    assert.equal(res.raw.validation_state, store.validation_state);
   });
 
   test('manifest-car: signer, TSA and edit history are extracted', async () => {
