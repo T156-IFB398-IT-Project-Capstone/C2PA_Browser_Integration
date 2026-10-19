@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Engine-level check</title>
+  <link rel="icon" href="data:,">  <!-- no favicon request in the network record -->
+</head>
+<body>
+  <!-- Driven by tests/engine/run.mjs over the Chrome DevTools Protocol.
+       Opening this page by hand does nothing useful: run.mjs serves it,
+       calls window.__engineCheck and records every network request. -->
+  <p id="status">Loading engine-check bundle…</p>
+  <script type="module" src="/harness-bundle.js"></script>
+</body>
+</html>

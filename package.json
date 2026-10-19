@@ -8,6 +8,7 @@
     "build:watch": "node build.mjs --watch",
     "dev":         "node scripts/dev.mjs",
     "test":        "node scripts/run-tests.mjs",
+    "engine-check": "node tests/engine/run.mjs",
     "postinstall": "node c2pa-test-bench/build.mjs"
   },
   "dependencies": {
