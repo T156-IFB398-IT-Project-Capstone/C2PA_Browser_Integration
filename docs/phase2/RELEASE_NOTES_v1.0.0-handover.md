@@ -23,8 +23,10 @@ core can be lifted into a built-in browser setting.
 | Performance results | `perf/results/2026-10-07/` (method, raw logs, `results.json`). `perf/analyze.mjs` regenerates every figure. |
 | Handover documentation in this repository | `README.md`, `KNOWN_LIMITATIONS.md`, `docs/phase2/` (decisions, engine-check evidence, supported-formats matrix, SPIKE-001, finding-001, UI test checklist, trust-list notes) |
 
-The conversion guide, seam documentation, engine version record and user guide
-are being finalised separately. They are **not part of this tag**.
+**Handover documents to follow.** The conversion guide, seam documentation, engine
+version record, and build and deployment notes are not in the tagged source. They
+are being finalised and **will be attached to this GitHub Release afterwards**. The
+user guide is delivered separately.
 
 ## Changes since v0.2.0-handover
 
@@ -120,9 +122,18 @@ To run the test bench locally: `npm run dev` (serves http://127.0.0.1:8976).
   trust anchors, after remote manifests off).
 - **Performance:** `perf/results/2026-10-07/README.md` (n = 3 per scenario, Chrome
   154, run on `654a59d`).
-- **Fresh-clone verification:** the tag is created only after the tagged commit,
-  cloned into an empty directory, passes `npm ci`, `npm run build`,
-  `node scripts/check-syntax.mjs`, `npm test` and the engine-level check. It must
-  also pass the manual browser checks: load unpacked in a clean Chrome profile,
-  ON/OFF, badges on the gallery page, an MP4 and a no-credentials image. The
+- **Fresh-clone verification (automated):** the tag was created only after the
+  tagged commit, cloned into an empty directory, passed `npm ci`, `npm run build`,
+  `node scripts/check-syntax.mjs`, `npm test` and the engine-level check. The
   outputs are recorded in the GenAI log after tagging.
+- **Manual browser checks were pending at tag time.** These checks had not been
+  run on the tagged build when this release was created:
+  - load unpacked in a clean Chrome profile,
+  - the ON/OFF switch,
+  - badges on the gallery page,
+  - an MP4,
+  - a no-credentials image.
+
+  They are to be covered by the live demo at the handover walkthrough, and the
+  results will be reported afterwards. If a check fails, the fix will be released
+  as `v1.0.1-handover`. This tag will not be moved.
