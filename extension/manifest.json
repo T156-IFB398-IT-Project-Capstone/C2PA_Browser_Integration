@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "C2PA Content Credentials (QUT x Databench)",
   "short_name": "C2PA Verify",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Detect and verify C2PA Content Credentials on images while you browse. All verification runs locally in the browser via WebAssembly — no external service required.",
 
   "action": {
